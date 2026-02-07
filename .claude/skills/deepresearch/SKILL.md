@@ -9,7 +9,7 @@ description: |
 argument-hint: "[주제]"
 context: fork
 agent: general-purpose
-allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep
+allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash
 ---
 
 # 철저한 자료조사 스킬
@@ -35,9 +35,23 @@ allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__cont
 ├── WebSearch: "[주제] advanced tutorial"
 ├── WebSearch: "[주제] vs alternatives comparison"
 ├── WebSearch: "[주제] common mistakes pitfalls"
+├── GitHub: gh search issues "[주제]" --sort updated (관련 이슈/토론 검색)
+├── GitHub: gh search repos "[주제]" --sort stars (관련 레포 탐색)
 ├── Context7: resolve-library-id (기술 주제인 경우)
 └── Context7: query-docs (ID 확보 후, 최대 3회)
 ```
+
+**GitHub CLI 활용 (Bash를 통해 실행)**
+
+gh 명령은 GitHub 관련 정보 수집에만 사용한다:
+- `gh search issues "[주제]" --sort updated --limit 5` - 관련 이슈/토론 검색
+- `gh search repos "[주제]" --sort stars --limit 5` - 관련 레포 탐색
+- `gh api repos/{owner}/{repo}/readme` - 레포 README 조회
+- `gh issue view {number} -R {owner}/{repo}` - 특정 이슈 상세 조회
+- `gh pr view {number} -R {owner}/{repo}` - PR 토론/리뷰 조회
+- `gh release list -R {owner}/{repo} --limit 3` - 최신 릴리즈 확인
+
+Bash는 gh 명령 실행 용도로만 사용하며, 다른 시스템 명령에는 사용하지 않는다.
 
 ### 3단계: 정보 종합
 - 주제별 분류
