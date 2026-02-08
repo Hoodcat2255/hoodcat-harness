@@ -1,68 +1,53 @@
 ---
 name: deepresearch
 description: |
-  웹 검색과 Context7을 활용한 철저한 심층 자료조사 스킬. 다음 상황에서 사용:
-  - "~에 대해 철저하게 조사해줘", "~를 찾아줘", "~에 대해 알아봐"
-  - 라이브러리/프레임워크 문서 조회가 필요할 때
-  - 최신 정보와 공식 문서를 종합해야 할 때
-  - "deepresearch", "철저하게", "조사", "리서치", "문서화" 키워드가 포함될 때
+  Performs thorough deep research on any topic using web search, Context7 docs, and GitHub CLI.
+  Saves structured results to docs/ directory. Use when the user asks to research, investigate,
+  or gather comprehensive information on a topic. Triggers on: "조사해줘", "찾아줘", "알아봐",
+  "리서치", "deepresearch", or any request for in-depth information gathering about a technology,
+  library, framework, concept, or trend.
 argument-hint: "[주제]"
+user-invocable: true
 context: fork
 agent: general-purpose
 allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash
 ---
 
-# 철저한 자료조사 스킬
-
-항상 철저하게 심층 조사를 수행하여 포괄적이고 정확한 정보를 제공합니다.
-
-## 조사 프로세스
-
-### 1단계: 주제 분석
-- 핵심 키워드 추출
-- 관련 라이브러리/프레임워크 식별
-
-### 2단계: 병렬 정보 수집 (5-7개 동시 실행)
+# Deep Research
 
 **현재 연도: !`date +%Y`**
 
-**모든 검색은 단일 메시지에서 병렬로 실행**
+## 프로세스
+
+### 1. 병렬 정보 수집
+
+$ARGUMENTS에 대해 **단일 메시지에서 5-7개 검색을 병렬 실행**한다:
 
 ```
 동시 실행:
-├── WebSearch: "[주제] comprehensive guide !`date +%Y`"
-├── WebSearch: "[주제] best practices patterns"
-├── WebSearch: "[주제] advanced tutorial"
-├── WebSearch: "[주제] vs alternatives comparison"
-├── WebSearch: "[주제] common mistakes pitfalls"
-├── GitHub: gh search issues "[주제]" --sort updated (관련 이슈/토론 검색)
-├── GitHub: gh search repos "[주제]" --sort stars (관련 레포 탐색)
+├── WebSearch: "$ARGUMENTS comprehensive guide !`date +%Y`"
+├── WebSearch: "$ARGUMENTS best practices patterns"
+├── WebSearch: "$ARGUMENTS advanced tutorial"
+├── WebSearch: "$ARGUMENTS vs alternatives comparison"
+├── WebSearch: "$ARGUMENTS common mistakes pitfalls"
+├── Bash: gh search repos "$ARGUMENTS" --sort stars --limit 5
+├── Bash: gh search issues "$ARGUMENTS" --sort updated --limit 5
 ├── Context7: resolve-library-id (기술 주제인 경우)
 └── Context7: query-docs (ID 확보 후, 최대 3회)
 ```
 
-**GitHub CLI 활용 (Bash를 통해 실행)**
+### 2. 심화 조사
 
-gh 명령은 GitHub 관련 정보 수집에만 사용한다:
-- `gh search issues "[주제]" --sort updated --limit 5` - 관련 이슈/토론 검색
-- `gh search repos "[주제]" --sort stars --limit 5` - 관련 레포 탐색
-- `gh api repos/{owner}/{repo}/readme` - 레포 README 조회
-- `gh issue view {number} -R {owner}/{repo}` - 특정 이슈 상세 조회
-- `gh pr view {number} -R {owner}/{repo}` - PR 토론/리뷰 조회
+1차 결과에서 발견한 핵심 출처를 WebFetch로 상세 조회한다. 유용한 GitHub 레포가 있으면:
+- `gh api repos/{owner}/{repo}/readme` - README 조회
 - `gh release list -R {owner}/{repo} --limit 3` - 최신 릴리즈 확인
+- `gh issue view {number} -R {owner}/{repo}` - 주요 이슈 상세 조회
 
-Bash는 gh 명령 실행 용도로만 사용하며, 다른 시스템 명령에는 사용하지 않는다.
+Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 
-### 3단계: 정보 종합
-- 주제별 분류
-- 중복 제거
-- 신뢰도 검증
+### 3. 결과 저장
 
-### 4단계: 결과 정리 및 저장
-
-**조사 결과는 `docs/` 디렉토리에 마크다운 파일로 저장**
-
-파일명 규칙: `docs/research-[주제]-!`date +%Y%m%d`.md`
+파일: `docs/research-[주제]-!`date +%Y%m%d`.md`
 
 ```markdown
 # [주제] 조사 결과
@@ -93,20 +78,15 @@ Bash는 gh 명령 실행 용도로만 사용하며, 다른 시스템 명령에�
 - [출처 2](URL)
 ```
 
-## 사용법
+조사 완료 후 사용자에게 핵심 5가지를 요약하여 보고한다.
 
-```
-/deepresearch React Server Components
-/deepresearch Claude Code hooks
-/deepresearch Kubernetes networking
-```
+## 핸드오프 컨텍스트
 
-## 조사 원칙
+이 스킬의 출력은 다른 스킬/에이전트에서 소비된다:
+- **/plan**: 기술 선택의 근거 자료로 활용
+- **/decide**: 의사결정에 필요한 기초 조사 자료로 활용
+- **architect 에이전트**: 기술 스택 적합성 평가 시 참조
 
-1. **철저함**: 빠짐없이 모든 관점에서 조사
-2. **정확성**: 공식 문서와 신뢰할 수 있는 출처 우선
-3. **최신성**: 검색 시 현재 연도 포함
-4. **다양성**: 여러 출처에서 정보 종합
-5. **출처 명시**: 모든 정보의 출처 기록
-6. **실용성**: 코드 예제와 실제 사용 사례 포함
-7. **문서화**: 조사 결과는 반드시 `docs/` 디렉토리에 저장
+## REVIEW 연동
+
+조사 결과가 아키텍처/기술 선택에 영향을 주는 경우, /plan이나 워크플로우가 architect 에이전트에게 리뷰를 요청한다. deepresearch 자체는 리뷰 없이 완료된다.
