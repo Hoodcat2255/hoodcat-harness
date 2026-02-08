@@ -3,8 +3,9 @@ name: bugfix
 description: |
   Workflow for diagnosing and fixing bugs with verification.
   Navigates to bug source, patches, reviews, and runs regression tests.
-  Triggers on: "버그 고쳐", "bugfix", "이거 왜 안 돼", or any request
-  to fix a bug, resolve an error, or debug unexpected behavior.
+  Triggers on: "고쳐줘", "버그 고쳐", "버그 수정", "에러 해결", "bugfix",
+  "이거 왜 안 돼", "fix", or any request to fix a bug, resolve an error,
+  or debug unexpected behavior.
 argument-hint: "<버그 설명 또는 에러 메시지>"
 user-invocable: true
 context: fork

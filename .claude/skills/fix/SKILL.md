@@ -1,12 +1,11 @@
 ---
 name: fix
 description: |
-  Diagnoses and patches bugs with regression tests.
-  Use when the user reports a bug, error message, or unexpected behavior.
-  Triggers on: "고쳐줘", "버그 수정", "에러 해결", "fix", or any request
-  to debug, fix, or resolve an error or unexpected behavior.
+  Internal skill that diagnoses and patches bugs with regression tests.
+  Called by /bugfix and /hotfix workflows, not directly by users.
+  For user-facing bug fixing, use /bugfix (includes review + regression test).
 argument-hint: "<버그 설명 또는 에러 메시지>"
-user-invocable: true
+user-invocable: false
 context: fork
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
 ---
@@ -92,12 +91,7 @@ Task(navigator): "$ARGUMENTS와 관련된 코드를 탐색하라. 에러가 발�
 [재현할 수 없었던 이유와 코드 분석 기반 수정 근거]
 ```
 
-## REVIEW 연동
+## 참고: REVIEW는 호출 워크플로우가 담당
 
-패치 완료 후, reviewer 에이전트에게 수정 품질을 리뷰받는다:
-
-```
-Task(reviewer): "다음 버그 수정의 코드 품질을 리뷰하라: [수정된 파일 목록]. 원인: [근본 원인 요약]"
-```
-
-BLOCK이 반환되면 수정하고 재리뷰한다.
+/fix는 내부 스킬이므로 자체 리뷰를 수행하지 않는다.
+리뷰는 호출한 워크플로우(/bugfix, /hotfix)가 별도로 Task(reviewer)를 호출하여 수행한다.
