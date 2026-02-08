@@ -20,7 +20,21 @@ allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 
 ## DO/REVIEW 시퀀스
 
+### Phase 0: Sisyphus 활성화
+
+논스탑 모드를 활성화한다:
+
+```bash
+jq --arg wf "hotfix" --arg ts "$(date -Iseconds)" \
+  '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 ### Phase 1: 심각도 평가
+
+```bash
+jq '.phase="severity-assessment"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 security 에이전트가 먼저 이슈의 심각도를 판단한다:
 
@@ -34,6 +48,10 @@ security 결과에서 확인:
 
 ### Phase 2: 수정
 
+```bash
+jq '.phase="patching"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 /fix 스킬이 취약 코드를 찾고 패치한다:
 
 ```
@@ -41,6 +59,10 @@ DO: Skill("fix", "$ARGUMENTS")
 ```
 
 ### Phase 3: 이중 리뷰
+
+```bash
+jq '.phase="dual-review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 보안 수정은 security + reviewer 두 에이전트가 모두 리뷰한다:
 
@@ -55,6 +77,12 @@ REVIEW: Task(reviewer): "패치의 코드 품질을 리뷰하라."
 - 하나라도 BLOCK → 수정 후 재리뷰 (최대 2회)
 
 ### Phase 4: 검증
+
+```bash
+jq '.phase="verification"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
+**검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
 테스트와 보안 스캔을 함께 실행한다:
 
@@ -80,6 +108,15 @@ security-scan 스킬이 아직 없으면 테스트 통과만으로 진행하고 
 
 1. 패치 + 이중 리뷰 통과 + 테스트 통과
 2. 사용자가 중단을 요청
+
+## Sisyphus 비활성화
+
+완료 보고 직전에 논스탑 모드를 비활성화한다:
+
+```bash
+jq '.active=false | .phase="done"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 ## 완료 보고
 

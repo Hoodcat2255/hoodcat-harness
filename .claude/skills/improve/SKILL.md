@@ -20,7 +20,21 @@ allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 
 ## DO/REVIEW 시퀀스
 
+### Phase 0: Sisyphus 활성화
+
+논스탑 모드를 활성화한다:
+
+```bash
+jq --arg wf "improve" --arg ts "$(date -Iseconds)" \
+  '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 ### Phase 1: 분석
+
+```bash
+jq '.phase="analysis"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 navigator 에이전트로 영향 범위를 파악한다:
 
@@ -45,6 +59,10 @@ REVIEW: Task(architect): "개선 설계가 기존 아키텍처와 조화로운�
 
 ### Phase 2: 개발
 
+```bash
+jq '.phase="development"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 ```
 DO: Skill("implement", "$ARGUMENTS")
 REVIEW: Task(reviewer): "변경된 코드의 품질을 리뷰하라. 기존 패턴과의 일관성에 주의."
@@ -54,6 +72,12 @@ REVIEW: Task(reviewer): "변경된 코드의 품질을 리뷰하라. 기존 패�
 - BLOCK → 수정 후 재리뷰
 
 ### Phase 3: 검증
+
+```bash
+jq '.phase="verification"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
+**검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
 ```
 DO: Skill("test", "--regression")
@@ -71,6 +95,15 @@ DO: Skill("test", "--regression")
 
 1. 회귀 테스트 전체 통과
 2. 사용자가 중단을 요청
+
+## Sisyphus 비활성화
+
+완료 보고 직전에 논스탑 모드를 비활성화한다:
+
+```bash
+jq '.active=false | .phase="done"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 ## 완료 보고
 

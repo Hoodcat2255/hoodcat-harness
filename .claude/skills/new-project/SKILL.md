@@ -20,10 +20,24 @@ allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 
 ## DO/REVIEW 시퀀스
 
-$ARGUMENTS를 기반으로 다음 단계를 순차 실행한다.
+$ARGUMENTS를 기반으로 다음 단계를 논스탑으로 순차 실행한다.
 각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
 
+### Phase 0: Sisyphus 활성화
+
+논스탑 모드를 활성화한다 (Phase가 5개로 가장 많으므로 maxIterations=20):
+
+```bash
+jq --arg wf "new-project" --arg ts "$(date -Iseconds)" \
+  '.active=true | .workflow=$wf | .maxIterations=20 | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 ### Phase 1: 기획
+
+```bash
+jq '.phase="planning"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 ```
 DO: Skill("plan", "$ARGUMENTS")
@@ -40,6 +54,10 @@ REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하
 
 ### Phase 2: 기술조사 (필요시)
 
+```bash
+jq '.phase="research"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
 /design 과정에서 기술 선택이 불확실한 경우에만 실행한다:
 
 ```
@@ -51,6 +69,10 @@ REVIEW: Task(architect): "조사 결과를 바탕으로, 이 기술 선택이 �
 - BLOCK → 대안 기술 조사 후 재리뷰
 
 ### Phase 3: 개발
+
+```bash
+jq '.phase="development"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 /plan이 생성한 tasks.md의 태스크를 순서대로 구현한다:
 
@@ -71,7 +93,12 @@ tasks.md의 각 태스크에 대해:
 
 ### Phase 4: QA
 
-모든 구현이 완료되면 테스트를 실행한다:
+```bash
+jq '.phase="qa"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
+
+모든 구현이 완료되면 테스트를 실행한다.
+**검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
 ```
 DO: Skill("test", "<전체 또는 변경된 모듈>")
@@ -86,6 +113,10 @@ DO: Skill("test", "<전체 또는 변경된 모듈>")
   재테스트 후에도 실패하면 사용자에게 보고
 
 ### Phase 5: 배포 (선택)
+
+```bash
+jq '.phase="deploy"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 사용자가 배포를 요청한 경우에만 실행:
 
@@ -102,6 +133,15 @@ REVIEW: Task(security): "배포 설정이 안전한가?"
 1. 모든 Phase가 성공적으로 완료
 2. 배포 없이 QA까지 통과 (배포 미요청 시)
 3. 사용자가 중단을 요청
+
+## Sisyphus 비활성화
+
+완료 보고 직전에 논스탑 모드를 비활성화한다:
+
+```bash
+jq '.active=false | .phase="done"' \
+  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+```
 
 ## 완료 보고
 
