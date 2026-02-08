@@ -36,11 +36,11 @@ REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하
 ```
 
 - PASS/WARN → Phase 2로 진행
-- BLOCK → /plan 산출물 수정 후 재리뷰
+- BLOCK → /design 산출물 수정 후 재리뷰
 
 ### Phase 2: 기술조사 (필요시)
 
-/plan 과정에서 기술 선택이 불확실한 경우에만 실행한다:
+/design 과정에서 기술 선택이 불확실한 경우에만 실행한다:
 
 ```
 DO: Skill("deepresearch", "<조사 주제>")

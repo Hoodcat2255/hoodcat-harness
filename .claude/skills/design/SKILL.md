@@ -1,9 +1,9 @@
 ---
-name: plan
+name: design
 description: |
   Creates project plans with requirements, architecture design, and task breakdown.
   Use when the user wants to plan a new feature, project, or significant change.
-  Triggers on: "계획 세워줘", "설계해줘", "기획해줘", "plan", or any request
+  Triggers on: "계획 세워줘", "설계해줘", "기획해줘", "design", or any request
   for structured planning of a feature or project.
 argument-hint: "<기능 또는 프로젝트 설명>"
 user-invocable: true
@@ -11,7 +11,7 @@ context: fork
 allowed-tools: Read, Write, Glob, Grep, Bash, Task, WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs
 ---
 
-# Plan Skill
+# Design Skill
 
 **현재 연도: !`date +%Y`**
 

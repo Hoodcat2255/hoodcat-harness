@@ -15,7 +15,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
 
 ## 입력
 
-$ARGUMENTS: 태스크 설명, 또는 `/plan`이 생성한 tasks.md의 특정 태스크 참조
+$ARGUMENTS: 태스크 설명, 또는 `/design`이 생성한 tasks.md의 특정 태스크 참조
 
 ## 프로세스
 
