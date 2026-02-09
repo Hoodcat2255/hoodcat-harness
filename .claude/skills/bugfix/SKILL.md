@@ -37,13 +37,56 @@ jq --arg wf "bugfix" --arg ts "$(date -Iseconds)" \
 jq '.phase="diagnose-fix"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
 
-/fix 스킬이 navigator 호출, 원인 진단, 패치를 모두 수행한다:
+먼저 버그 복잡도를 판단한다:
+
+**단순 버그** (다음 중 하나라도 해당):
+- 에러 메시지에 파일 경로/라인이 명시됨
+- 단일 파일의 명확한 로직 오류
+- 재현 방법이 명확함
+
+→ 기존 /fix 서브에이전트로 진행:
 
 ```
 DO: Skill("fix", "$ARGUMENTS")
 ```
 
-/fix 결과에서 확인:
+**복잡 버그** (다음 중 2개 이상 해당):
+- 재현이 어렵거나 간헐적
+- 원인이 불명확 (에러 메시지만으로 위치 특정 불가)
+- 다중 모듈에 걸친 상호작용 문제
+- 여러 가능한 원인이 존재
+
+→ 에이전트팀 기반 경쟁 가설 디버깅:
+
+```
+1. TeamCreate("debug-team")
+
+2. navigator로 관련 코드 범위 파악:
+   Task(navigator): "$ARGUMENTS와 관련된 코드를 탐색하라"
+
+3. navigator 결과를 바탕으로 3개의 경쟁 가설 수립
+   각 가설별 TaskCreate:
+   TaskCreate({
+     subject: "가설 1: [가설 제목]",
+     description: "가설: [가설 설명]. 조사할 영역: [파일/모듈]. 이 가설이 맞다면 [예상 증거]. 틀리다면 [반증 조건].",
+     activeForm: "가설 1 조사 중"
+   })
+
+4. 각 가설별 디버거 스폰 (최대 3명):
+   Task(team_name="debug-team", name="debugger-N"):
+     "당신은 디버거입니다. 가설 N을 조사하세요: [가설 설명].
+      조사 방법: 관련 코드를 읽고, 로그를 분석하고, 테스트를 실행하세요.
+      다른 디버거의 가설에 대한 반증을 찾으면 SendMessage로 공유하세요.
+      조사 완료 후 TaskUpdate로 결과(확증/반증)를 보고하세요."
+
+5. 리드가 결과 종합:
+   - 확증된 가설의 디버거가 수정 구현
+   - 모든 가설이 반증되면 새 가설 수립 후 반복
+   - SendMessage(type="shutdown_request")로 팀원 종료
+   - TeamDelete로 정리
+```
+
+/fix (또는 경쟁 가설 디버깅) 결과에서 확인:
 - 근본 원인이 특정되었는가
 - 패치가 적용되었는가
 - 회귀 테스트가 작성되었는가

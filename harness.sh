@@ -174,6 +174,23 @@ copy_settings() {
     fi
 }
 
+copy_statusline() {
+    local target="$1"
+    local src="${SOURCE_CLAUDE_DIR}/statusline.sh"
+    local dst="${target}/.claude/statusline.sh"
+
+    if [[ ! -f "$src" ]]; then
+        log_debug "소스 statusline.sh가 없습니다."
+        return
+    fi
+
+    if dry_run_guard "statusline.sh 복사"; then
+        cp "$src" "$dst"
+        chmod +x "$dst"
+        log_debug "statusline.sh 복사 및 실행 권한 설정 완료"
+    fi
+}
+
 write_harness_meta() {
     local target="$1"
     local mode="${2:-install}"
@@ -382,27 +399,31 @@ cmd_install() {
     log_info "템플릿 파일 복사 중..."
     copy_template_files "$target"
 
-    # 2. sisyphus flags 초기화
+    # 2. statusline 복사
+    log_info "상태표시줄 스크립트 설치 중..."
+    copy_statusline "$target"
+
+    # 3. sisyphus flags 초기화
     log_info "Sisyphus 플래그 초기화 중..."
     reset_sisyphus_flags "$target"
 
-    # 3. 런타임 디렉토리 생성
+    # 4. 런타임 디렉토리 생성
     log_info "런타임 디렉토리 생성 중..."
     init_runtime_dirs "$target"
 
-    # 4. settings.local.json 복사
+    # 5. settings.local.json 복사
     log_info "설정 파일 복사 중..."
     copy_settings "$target" "install"
 
-    # 5. .gitignore 업데이트
+    # 6. .gitignore 업데이트
     log_info ".gitignore 업데이트 중..."
     update_target_gitignore "$target"
 
-    # 6. .harness-meta.json 기록
+    # 7. .harness-meta.json 기록
     log_info "메타 정보 기록 중..."
     write_harness_meta "$target" "install"
 
-    # 7. git 설정
+    # 8. git 설정
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
 
@@ -417,6 +438,7 @@ cmd_install() {
             echo "  .claude/${dir}/ (${count}개 파일)"
         fi
     done
+    echo "  .claude/statusline.sh"
     echo "  .claude/flags/sisyphus.json"
     echo "  .claude/settings.local.json"
     echo ""
@@ -480,6 +502,23 @@ cmd_update() {
         fi
     done
 
+    # standalone 파일 변경 감지
+    local standalone_files=(statusline.sh settings.local.json)
+    for file in "${standalone_files[@]}"; do
+        local src="${SOURCE_CLAUDE_DIR}/${file}"
+        local dst="${target}/.claude/${file}"
+
+        if [[ -f "$src" && ! -f "$dst" ]]; then
+            log_info "  + ${file} (새로 추가)"
+            has_changes=true
+        elif [[ -f "$src" && -f "$dst" ]]; then
+            if ! diff -q "$src" "$dst" &>/dev/null; then
+                log_info "  ~ ${file} (변경됨)"
+                has_changes=true
+            fi
+        fi
+    done
+
     if [[ "$current_commit" == "$installed_commit" ]] && ! $has_changes; then
         log_info "변경 사항이 없습니다."
         return 0
@@ -496,15 +535,19 @@ cmd_update() {
     log_info "템플릿 파일 동기화 중..."
     copy_template_files "$target" "--delete"
 
-    # 2. settings.local.json 업데이트
+    # 2. statusline 업데이트
+    log_info "상태표시줄 스크립트 업데이트 중..."
+    copy_statusline "$target"
+
+    # 3. settings.local.json 업데이트
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
 
-    # 3. 런타임 파일 보존 (flags, memory, log)
+    # 4. 런타임 파일 보존 (flags, memory, log)
     log_info "런타임 파일 보존 확인..."
     init_runtime_dirs "$target"  # 디렉토리가 없으면 생성
 
-    # 4. .harness-meta.json 갱신
+    # 5. .harness-meta.json 갱신
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
 
@@ -533,6 +576,7 @@ cmd_delete() {
             echo "  .claude/${dir}/"
         fi
     done
+    echo "  .claude/statusline.sh"
     echo "  .claude/flags/"
     echo "  .claude/settings.local.json"
     echo "  .claude/.harness-meta.json"
