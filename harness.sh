@@ -42,9 +42,9 @@ die()       { log_error "$*"; exit 1; }
 confirm() {
     if $FORCE; then return 0; fi
     local prompt="${1:-계속하시겠습니까?}"
-    echo -en "${YELLOW}${prompt} [y/N] ${NC}"
+    echo -en "${YELLOW}${prompt} [Y/n] ${NC}"
     read -r answer
-    [[ "$answer" =~ ^[Yy]$ ]]
+    [[ ! "$answer" =~ ^[Nn]$ ]]
 }
 
 dry_run_guard() {
@@ -656,7 +656,7 @@ usage() {
   status  <dir>    설치 상태 확인
 
 옵션:
-  -f, --force      확인 프롬프트 스킵
+  -f, --force, -y   확인 프롬프트 스킵
   -n, --dry-run    실제 변경 없이 표시만
   -v, --verbose    상세 로그 출력
   -h, --help       도움말 표시
@@ -674,7 +674,7 @@ main() {
                 command="$1"
                 shift
                 ;;
-            -f|--force)
+            -f|--force|-y|--yes)
                 FORCE=true
                 shift
                 ;;

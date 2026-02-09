@@ -116,19 +116,23 @@ DO: Skill("test", "$ARGUMENTS")
 jq '.phase="review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
 
-구현 완료 후, reviewer 에이전트에게 리뷰를 요청한다:
+구현 완료 후, reviewer 에이전트에게 리뷰를 요청한다.
+인증/보안 관련 코드가 포함된 경우, security 에이전트에게도 리뷰를 요청한다.
+
+**두 리뷰가 모두 필요한 경우, 반드시 하나의 응답에서 두 Task를 동시에 호출하여 병렬 실행한다:**
+
+```
+REVIEW (병렬 실행):
+  Task(reviewer, run_in_background=true): "다음 파일들의 코드 품질을 리뷰하라: [변경된 파일 목록]"
+  Task(security, run_in_background=true): "다음 파일들의 보안을 리뷰하라: [변경된 파일 목록]"
+두 결과를 모두 수집한 후 판단한다.
+```
+
+reviewer만 필요한 경우(보안 무관 코드):
 
 ```
 REVIEW: Task(reviewer): "다음 파일들의 코드 품질을 리뷰하라: [변경된 파일 목록]"
 ```
-
-인증/보안 관련 코드가 포함된 경우, security 에이전트에게도 리뷰를 요청한다:
-
-```
-REVIEW: Task(security): "다음 파일들의 보안을 리뷰하라: [변경된 파일 목록]"
-```
-
-두 리뷰를 병렬로 요청할 수 있다.
 
 - PASS/WARN → 완료
 - BLOCK → 수정 후 재리뷰 (최대 2회)

@@ -64,14 +64,15 @@ DO: Skill("fix", "$ARGUMENTS")
 jq '.phase="dual-review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
 
-보안 수정은 security + reviewer 두 에이전트가 모두 리뷰한다:
+보안 수정은 security + reviewer 두 에이전트가 모두 리뷰한다.
+**반드시 하나의 응답에서 두 Task를 동시에 호출하여 병렬 실행한다:**
 
 ```
-REVIEW: Task(security): "패치가 취약점을 완전히 해결하는가? 새로운 공격 벡터가 생기지 않았는가?"
-REVIEW: Task(reviewer): "패치의 코드 품질을 리뷰하라."
+REVIEW (병렬 실행):
+  Task(security, run_in_background=true): "패치가 취약점을 완전히 해결하는가? 새로운 공격 벡터가 생기지 않았는가?"
+  Task(reviewer, run_in_background=true): "패치의 코드 품질을 리뷰하라."
+두 결과를 모두 수집한 후 판단한다.
 ```
-
-두 리뷰를 병렬로 요청할 수 있다.
 
 - 둘 다 PASS/WARN → Phase 4로 진행
 - 하나라도 BLOCK → 수정 후 재리뷰 (최대 2회)
