@@ -7,8 +7,6 @@ description: |
   or any request to fix a security vulnerability or critical production issue.
 argument-hint: "<보안 이슈 또는 긴급 이슈 설명>"
 user-invocable: true
-context: fork
-allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 ---
 
 # Hotfix Workflow
@@ -20,15 +18,22 @@ allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 
 ## DO/REVIEW 시퀀스
 
-### Phase 0: Sisyphus 활성화
+### Phase 0: Sisyphus 관리
 
-논스탑 모드를 활성화한다:
+Sisyphus 상태를 확인한다:
 
 ```bash
-jq --arg wf "hotfix" --arg ts "$(date -Iseconds)" \
-  '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
 ```
+
+- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
+  ```bash
+  jq --arg wf "hotfix" --arg ts "$(date -Iseconds)" \
+    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+  ```
+
+- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
 
 ### Phase 1: 심각도 평가
 
@@ -112,12 +117,13 @@ security-scan 스킬이 아직 없으면 테스트 통과만으로 진행하고 
 
 ## Sisyphus 비활성화
 
-완료 보고 직전에 논스탑 모드를 비활성화한다:
+이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
 
 ```bash
 jq '.active=false | .phase="done"' \
   .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
+서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

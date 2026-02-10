@@ -2,7 +2,7 @@
 name: architect
 description: |
   Architecture reviewer for structural soundness and scalability.
-  Called when: /design produces a design document, adding new modules or services,
+  Called when: /blueprint produces a design document, adding new modules or services,
   changing system boundaries or data flow, selecting technology stack,
   or when /deepresearch results need architectural evaluation.
   NOT called for: code style issues, security audits, or simple bug fixes.
@@ -54,7 +54,7 @@ Focus areas:
 
 When you receive input from other agents or skills:
 - **From navigator**: Use the navigation report to understand file relationships before reviewing
-- **From /design**: Evaluate the architecture document, not implementation details
+- **From /blueprint**: Evaluate the architecture document, not implementation details
 - **From /deepresearch**: Assess whether the researched technology fits the system's architecture
 
 Your output will be consumed by:

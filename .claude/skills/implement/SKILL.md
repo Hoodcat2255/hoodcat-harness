@@ -7,30 +7,35 @@ description: |
   to write or create code for a feature or task.
 argument-hint: "<태스크 설명 또는 tasks.md 참조>"
 user-invocable: true
-context: fork
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, Skill
 ---
 
 # Implement Skill
 
 ## 입력
 
-$ARGUMENTS: 태스크 설명, 또는 `/design`이 생성한 tasks.md의 특정 태스크 참조
+$ARGUMENTS: 태스크 설명, 또는 `/blueprint`이 생성한 tasks.md의 특정 태스크 참조
 
 ## DO/REVIEW 시퀀스
 
 $ARGUMENTS를 기반으로 다음 단계를 논스탑으로 순차 실행한다.
 각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
 
-### Phase 0: Sisyphus 활성화
+### Phase 0: Sisyphus 관리
 
-논스탑 모드를 활성화한다:
+Sisyphus 상태를 확인한다:
 
 ```bash
-jq --arg wf "implement" --arg ts "$(date -Iseconds)" \
-  '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
 ```
+
+- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
+  ```bash
+  jq --arg wf "implement" --arg ts "$(date -Iseconds)" \
+    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+  ```
+
+- **`active=true`** (서브워크플로우, 예: /improve에서 호출됨): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
 
 ### Phase 1: 컨텍스트 파악
 
@@ -146,12 +151,13 @@ REVIEW: Task(reviewer): "다음 파일들의 코드 품질을 리뷰하라: [변
 
 ## Sisyphus 비활성화
 
-완료 보고 직전에 논스탑 모드를 비활성화한다:
+이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
 
 ```bash
 jq '.active=false | .phase="done"' \
   .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
+서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

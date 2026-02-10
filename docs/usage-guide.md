@@ -37,7 +37,7 @@ cp -r /path/to/hoodcat-harness/.claude /your/project/.claude
 | 스킬 | 호출 | 용도 |
 |------|------|------|
 | `/deepresearch` | "조사해줘", "찾아봐", "리서치" | 주제별 심층 자료조사 → `docs/research-*.md` 저장 |
-| `/design` | "계획 세워줘", "설계해줘" | 요구사항 정의, 아키텍처, 태스크 분해 → `docs/plans/` 저장 |
+| `/blueprint` | "계획 세워줘", "설계해줘" | 요구사항 정의, 아키텍처, 태스크 분해 → `docs/plans/` 저장 |
 | `/decide` | "판단해줘", "비교해줘", "추천해줘" | 근거 기반 의사결정 → `docs/decide-*.md` 저장 |
 
 ### 유틸리티 스킬 (4개)
@@ -62,7 +62,7 @@ cp -r /path/to/hoodcat-harness/.claude /your/project/.claude
 | 에이전트 | 역할 | 호출 시점 |
 |----------|------|----------|
 | **navigator** | 코드베이스 탐색, 파일 매핑, 영향 범위 파악 | `/implement`, `/fix` 시작 시 |
-| **architect** | 아키텍처 리뷰 (구조, 확장성, 기술 스택) | `/design` 산출물 리뷰, 큰 변경 시 |
+| **architect** | 아키텍처 리뷰 (구조, 확장성, 기술 스택) | `/blueprint` 산출물 리뷰, 큰 변경 시 |
 | **reviewer** | 코드 품질 리뷰 (가독성, 일관성, 에러 처리) | `/implement`, `/fix` 완료 후 |
 | **security** | 보안 리뷰 (OWASP Top 10, 인증, 입력 검증) | `/hotfix`, 인증/보안 코드 변경 시 |
 
@@ -79,7 +79,7 @@ cp -r /path/to/hoodcat-harness/.claude /your/project/.claude
 Phase 0: Sisyphus 활성화
     │
 Phase 1: 기획
-    │   /design → architect 리뷰
+    │   /blueprint → architect 리뷰
     │
 Phase 2: 기술조사 (필요시)
     │   /deepresearch → architect 리뷰
@@ -169,7 +169,7 @@ Phase 1: 분석
     │   작은 변경? → Phase 2로 직행
     │
 Phase 1.5: 기획 (큰 변경만)
-    │   /design → architect 리뷰
+    │   /blueprint → architect 리뷰
     │
 Phase 2: 개발
     │   /implement → reviewer 리뷰
@@ -248,7 +248,7 @@ jq '.active=false | .phase="manual-stopped"' \
 │   ├── commit/SKILL.md
 │   ├── decide/SKILL.md
 │   ├── deploy/SKILL.md
-│   ├── design/SKILL.md
+│   ├── blueprint/SKILL.md
 │   ├── deepresearch/SKILL.md
 │   ├── fix/SKILL.md
 │   ├── hotfix/SKILL.md

@@ -7,8 +7,6 @@ description: |
   to build something new from the ground up.
 argument-hint: "<프로젝트 또는 기능 설명>"
 user-invocable: true
-context: fork
-allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 ---
 
 # New Project Workflow
@@ -23,15 +21,22 @@ allowed-tools: Task, Skill, Read, Write, Glob, Grep, Bash
 $ARGUMENTS를 기반으로 다음 단계를 논스탑으로 순차 실행한다.
 각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
 
-### Phase 0: Sisyphus 활성화
+### Phase 0: Sisyphus 관리
 
-논스탑 모드를 활성화한다 (Phase가 5개로 가장 많으므로 maxIterations=20):
+Sisyphus 상태를 확인한다:
 
 ```bash
-jq --arg wf "new-project" --arg ts "$(date -Iseconds)" \
-  '.active=true | .workflow=$wf | .maxIterations=20 | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
 ```
+
+- **`active=false`** (최상위 호출): Sisyphus를 활성화한다 (maxIterations=20). 이후 종료 시 비활성화 책임이 있다.
+  ```bash
+  jq --arg wf "new-project" --arg ts "$(date -Iseconds)" \
+    '.active=true | .workflow=$wf | .maxIterations=20 | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
+    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
+  ```
+
+- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
 
 ### Phase 1: 기획
 
@@ -40,17 +45,17 @@ jq '.phase="planning"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tm
 ```
 
 ```
-DO: Skill("plan", "$ARGUMENTS")
+DO: Skill("blueprint", "$ARGUMENTS")
 ```
 
-/plan이 산출물을 생성하면, architect 에이전트에게 리뷰를 요청한다:
+/blueprint이 산출물을 생성하면, architect 에이전트에게 리뷰를 요청한다:
 
 ```
 REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하라. 구조가 적합한가?"
 ```
 
 - PASS/WARN → Phase 2로 진행
-- BLOCK → /design 산출물 수정 후 재리뷰
+- BLOCK → /blueprint 산출물 수정 후 재리뷰
 
 ### Phase 2: 기술조사 (필요시)
 
@@ -58,7 +63,7 @@ REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하
 jq '.phase="research"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
 
-/design 과정에서 기술 선택이 불확실한 경우에만 실행한다:
+/blueprint 과정에서 기술 선택이 불확실한 경우에만 실행한다:
 
 ```
 DO: Skill("deepresearch", "<조사 주제>")
@@ -74,7 +79,7 @@ REVIEW: Task(architect): "조사 결과를 바탕으로, 이 기술 선택이 �
 jq '.phase="development"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
 
-/plan이 생성한 tasks.md의 태스크를 구현한다.
+/blueprint이 생성한 tasks.md의 태스크를 구현한다.
 
 **병렬 개발 판단**: tasks.md의 태스크 의존성을 분석하여 실행 방식을 결정한다:
 
@@ -186,12 +191,13 @@ REVIEW: Task(security): "배포 설정이 안전한가?"
 
 ## Sisyphus 비활성화
 
-완료 보고 직전에 논스탑 모드를 비활성화한다:
+이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
 
 ```bash
 jq '.active=false | .phase="done"' \
   .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
 ```
+서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

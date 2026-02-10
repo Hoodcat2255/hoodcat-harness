@@ -31,6 +31,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 프로젝트의 테스트 스위트가 다양할 때 사용
 - 비용: 단일 테스트 대비 최대 4배 토큰
 
+## 스킬 아키텍처
+
+스킬은 두 계층으로 구분된다:
+
+### 워크플로우 스킬 (오케스트레이터)
+메인 컨텍스트에서 실행되며, 에이전트와 워커 스킬을 시퀀스로 조율한다.
+- implement, bugfix, hotfix, improve, new-project
+- `context: fork` 없음 — 유저가 중간 과정에 개입 가능
+- Sisyphus 가드: 서브워크플로우로 호출 시 이중 활성화 방지
+
+### 워커 스킬
+`context: fork`로 서브에이전트에서 격리 실행된다.
+- fix, test, blueprint, deploy, security-scan, commit, deepresearch, decide, team-review, qa-swarm
+
 ## 스킬 작성 규칙
 
 스킬 파일은 `.claude/skills/<skill-name>/SKILL.md` 경로에 생성합니다.
@@ -39,8 +53,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `name`: 스킬 식별자
 - `description`: 스킬 용도 및 트리거 조건
 
-선택적 필드:
-- `context: fork` - 서브에이전트에서 실행
+선택적 필드 (워커 스킬용):
+- `context: fork` - 서브에이전트에서 실행 (워커 스킬에만 사용)
 - `agent` - 사용할 에이전트 유형
 - `allowed-tools` - 허용할 도구 목록
 
@@ -49,10 +63,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 워크플로우 스킬(implement, new-project, bugfix, improve, hotfix)은 Stop Hook 기반 강제속행 메커니즘(Sisyphus)으로 모든 Phase를 완료할 때까지 멈추지 않는다.
 
 ### 동작 방식
-- Phase 0에서 `.claude/flags/sisyphus.json`의 `active`를 `true`로 설정
+- Phase 0에서 Sisyphus 가드로 상태를 확인한 후, 최상위 호출일 때만 `active`를 `true`로 설정
+- 서브워크플로우로 호출된 경우(이미 `active=true`) 활성화를 건너뛰고 부모가 생명주기를 관리
 - 각 Phase 시작 시 `phase` 필드를 업데이트
 - Stop Hook(`.claude/hooks/sisyphus-gate.sh`)이 종료를 차단하고 다음 Phase로 진행하도록 유도
-- 모든 Phase 완료 후 `active`를 `false`로 설정하여 종료 허용
+- 모든 Phase 완료 후, 최상위 호출인 경우에만 `active`를 `false`로 설정하여 종료 허용
 
 ### 검증 규칙
 - 빌드/테스트 결과는 **실제 명령어의 exit code**로만 판단한다
