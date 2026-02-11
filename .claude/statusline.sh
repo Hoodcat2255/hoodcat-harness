@@ -28,10 +28,12 @@ else CTX_COLOR="$GREEN"; fi
 
 # 디렉토리 (마지막 폴더명)
 DIR_NAME="${CWD##*/}"
+DIR_COLOR="${RESET}"
 
 # Git 정보
 GIT_SECTION=""
 if git -C "$CWD" rev-parse --git-dir > /dev/null 2>&1; then
+    DIR_COLOR="${GREEN}"
     BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null)
     [ -z "$BRANCH" ] && BRANCH=$(git -C "$CWD" rev-parse --short HEAD 2>/dev/null)
     STAGED=$(git -C "$CWD" diff --cached --numstat 2>/dev/null | wc -l | tr -d ' ')
@@ -44,7 +46,74 @@ if git -C "$CWD" rev-parse --git-dir > /dev/null 2>&1; then
     [ "$UNTRACKED" -gt 0 ] && STATUS="${STATUS:+$STATUS }${RED}?${UNTRACKED}${RESET}"
     [ -z "$STATUS" ] && STATUS="${GREEN}clean${RESET}"
 
-    GIT_SECTION=" ${SEP} 🌿 ${CYAN}${BRANCH}${RESET} ${STATUS}"
+    # 브랜치 색상: untracked→빨강, modified→노랑, staged only→초록, clean→초록
+    BRANCH_COLOR="$GREEN"
+    [ "$STAGED" -gt 0 ]    && BRANCH_COLOR="$GREEN"
+    [ "$MODIFIED" -gt 0 ]  && BRANCH_COLOR="$YELLOW"
+    [ "$UNTRACKED" -gt 0 ] && BRANCH_COLOR="$RED"
+
+    GIT_SECTION=" ${SEP} ${RESET}🌿 ${BRANCH_COLOR}${BRANCH}${RESET} ${STATUS}"
+fi
+
+# ── OAuth 사용량 (5분 캐시) ──
+USAGE_SECTION=""
+CACHE_FILE="/tmp/claude-usage-cache.json"
+CACHE_TTL=300  # 5분
+
+get_token() {
+    # macOS: Keychain 우선, fallback to credentials file
+    if [ "$(uname)" = "Darwin" ]; then
+        local keychain_json
+        keychain_json=$(security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null)
+        if [ -n "$keychain_json" ]; then
+            echo "$keychain_json" | jq -r '.claudeAiOauth.accessToken // empty' 2>/dev/null
+            return
+        fi
+    fi
+    # Linux / fallback: credentials file
+    local creds="$HOME/.claude/.credentials.json"
+    [ -f "$creds" ] && jq -r '.claudeAiOauth.accessToken // empty' "$creds" 2>/dev/null
+}
+
+fetch_usage() {
+    local token
+    token=$(get_token)
+    [ -z "$token" ] && return 1
+    curl -s --max-time 3 "https://api.anthropic.com/api/oauth/usage" \
+        -H "Authorization: Bearer $token" \
+        -H "Content-Type: application/json" \
+        -H "anthropic-beta: oauth-2025-04-20" \
+        > "$CACHE_FILE" 2>/dev/null
+}
+
+usage_color() {
+    local val=$1
+    if [ "$val" -ge 80 ]; then echo "$RED"
+    elif [ "$val" -ge 50 ]; then echo "$YELLOW"
+    else echo "$GREEN"; fi
+}
+
+# 캐시 갱신 (백그라운드, TTL 초과 시)
+need_refresh=true
+if [ -f "$CACHE_FILE" ]; then
+    if [ "$(uname)" = "Darwin" ]; then
+        age=$(( $(date +%s) - $(stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0) ))
+    else
+        age=$(( $(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0) ))
+    fi
+    [ "$age" -lt "$CACHE_TTL" ] && need_refresh=false
+fi
+if $need_refresh; then
+    fetch_usage &
+fi
+
+# 캐시에서 읽기 (7일 사용량만)
+if [ -f "$CACHE_FILE" ] && [ -s "$CACHE_FILE" ]; then
+    U7D=$(jq -r '.seven_day.utilization // empty' "$CACHE_FILE" 2>/dev/null | cut -d. -f1)
+    if [ -n "$U7D" ]; then
+        C7D=$(usage_color "$U7D")
+        USAGE_SECTION=" ${SEP} \033[1mW${RESET} ${C7D}${U7D}%${RESET}"
+    fi
 fi
 
 # 에이전트팀 활성 여부
@@ -61,5 +130,6 @@ if [ -n "$AGENT" ]; then
     AGENT_SECTION=" 🏗️ ${MAGENTA}${AGENT}${RESET}"
 fi
 
-# 출력
-printf '%b' "📁 ${BLUE}${DIR_NAME}${RESET}${GIT_SECTION} ${SEP} 📊 ${CTX_COLOR}${PCT}%%${RESET} ${SEP} 🤖 ${DIM}${MODEL}${RESET}${TEAM_SECTION}${AGENT_SECTION}\n"
+# 출력 (줄 클리어 후 표시 - 이전 텍스트 잔여 방지)
+echo -ne '\033[2K\r'
+echo -e "📁 ${DIR_COLOR}${DIR_NAME}${RESET}${GIT_SECTION} ${SEP} 📊 ${CTX_COLOR}${PCT}%${RESET}${USAGE_SECTION} ${SEP} 🤖 ${DIM}${MODEL}${RESET}${TEAM_SECTION}${AGENT_SECTION}"
