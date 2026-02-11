@@ -4,7 +4,17 @@ set -euo pipefail
 # harness.sh - hoodcat-harness 멀티에이전트 시스템 설치/관리 스크립트
 # 사용법: ./harness.sh <command> <target-dir> [options]
 
-readonly SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+_resolve_path() {
+    local src="${BASH_SOURCE[0]}"
+    while [[ -L "$src" ]]; do
+        local dir
+        dir="$(cd -P "$(dirname "$src")" && pwd -P)"
+        src="$(readlink "$src")"
+        [[ "$src" != /* ]] && src="$dir/$src"
+    done
+    cd -P "$(dirname "$src")" && pwd -P
+}
+readonly SCRIPT_DIR="$(_resolve_path)"
 readonly SOURCE_CLAUDE_DIR="${SCRIPT_DIR}/.claude"
 readonly META_FILE=".claude/.harness-meta.json"
 
@@ -64,7 +74,8 @@ get_source_commit() {
 }
 
 get_timestamp() {
-    date -Iseconds
+    # POSIX-compatible ISO 8601 format (macOS date lacks -Iseconds)
+    date -u +"%Y-%m-%dT%H:%M:%S+00:00"
 }
 
 check_dependencies() {
@@ -106,27 +117,6 @@ copy_template_files() {
     done
 }
 
-reset_sisyphus_flags() {
-    local target="$1"
-    local flags_dir="${target}/.claude/flags"
-    local flags_file="${flags_dir}/sisyphus.json"
-
-    if dry_run_guard "sisyphus.json 초기 상태로 생성"; then
-        mkdir -p "$flags_dir"
-        cat > "$flags_file" << 'EOF'
-{
-  "active": false,
-  "maxIterations": 15,
-  "currentIteration": 0,
-  "startedAt": "",
-  "workflow": "",
-  "phase": ""
-}
-EOF
-        log_debug "sisyphus.json 초기화 완료"
-    fi
-}
-
 init_runtime_dirs() {
     local target="$1"
     if dry_run_guard "런타임 디렉토리 생성"; then
@@ -155,7 +145,12 @@ copy_settings() {
 
         echo ""
         log_warn "settings.local.json에 변경이 있습니다:"
-        diff --color=auto "$src" "$dst" || true
+        # macOS diff lacks --color; fall back to plain diff
+        if diff --help 2>&1 | grep -q -- '--color'; then
+            diff --color=auto "$src" "$dst" || true
+        else
+            diff "$src" "$dst" || true
+        fi
         echo ""
 
         if confirm "settings.local.json을 덮어쓰시겠습니까?"; then
@@ -403,27 +398,23 @@ cmd_install() {
     log_info "상태표시줄 스크립트 설치 중..."
     copy_statusline "$target"
 
-    # 3. sisyphus flags 초기화
-    log_info "Sisyphus 플래그 초기화 중..."
-    reset_sisyphus_flags "$target"
-
-    # 4. 런타임 디렉토리 생성
+    # 3. 런타임 디렉토리 생성
     log_info "런타임 디렉토리 생성 중..."
     init_runtime_dirs "$target"
 
-    # 5. settings.local.json 복사
+    # 4. settings.local.json 복사
     log_info "설정 파일 복사 중..."
     copy_settings "$target" "install"
 
-    # 6. .gitignore 업데이트
+    # 5. .gitignore 업데이트
     log_info ".gitignore 업데이트 중..."
     update_target_gitignore "$target"
 
-    # 7. .harness-meta.json 기록
+    # 6. .harness-meta.json 기록
     log_info "메타 정보 기록 중..."
     write_harness_meta "$target" "install"
 
-    # 8. git 설정
+    # 7. git 설정
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
 
@@ -439,7 +430,6 @@ cmd_install() {
         fi
     done
     echo "  .claude/statusline.sh"
-    echo "  .claude/flags/sisyphus.json"
     echo "  .claude/settings.local.json"
     echo ""
     echo -e "${YELLOW}[참고]${NC} CLAUDE.md는 프로젝트별로 다르므로 복사하지 않았습니다."
@@ -543,7 +533,7 @@ cmd_update() {
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
 
-    # 4. 런타임 파일 보존 (flags, memory, log)
+    # 4. 런타임 파일 보존 (memory, log)
     log_info "런타임 파일 보존 확인..."
     init_runtime_dirs "$target"  # 디렉토리가 없으면 생성
 
@@ -577,7 +567,6 @@ cmd_delete() {
         fi
     done
     echo "  .claude/statusline.sh"
-    echo "  .claude/flags/"
     echo "  .claude/settings.local.json"
     echo "  .claude/.harness-meta.json"
     echo ""
@@ -670,11 +659,6 @@ cmd_status() {
     # 런타임 상태
     echo ""
     echo "런타임:"
-    if [[ -f "${target}/.claude/flags/sisyphus.json" ]]; then
-        local active
-        active="$(grep -o '"active": *[a-z]*' "${target}/.claude/flags/sisyphus.json" | sed 's/.*: *//')"
-        echo "  sisyphus: ${active}"
-    fi
     if [[ -d "${target}/.claude/agent-memory-local" ]]; then
         local mem_count
         mem_count="$(find "${target}/.claude/agent-memory-local" -type f 2>/dev/null | wc -l)"
@@ -691,13 +675,13 @@ cmd_status() {
 
 usage() {
     cat << 'EOF'
-사용법: ./harness.sh <command> <target-dir> [options]
+사용법: harness <command> [dir] [options]
 
 명령:
-  install <dir>    대상 디렉토리에 harness 설치
-  update  <dir>    설치된 harness를 최신 버전으로 업데이트
-  delete  <dir>    설치된 harness 삭제
-  status  <dir>    설치 상태 확인
+  install [dir]    대상 디렉토리에 harness 설치 (기본: 현재 디렉토리)
+  update  [dir]    설치된 harness를 최신 버전으로 업데이트
+  delete  [dir]    설치된 harness 삭제
+  status  [dir]    설치 상태 확인
 
 옵션:
   -f, --force, -y   확인 프롬프트 스킵
@@ -749,7 +733,7 @@ main() {
     done
 
     [[ -n "$command" ]] || { usage; exit 1; }
-    [[ -n "$target" ]]  || die "대상 디렉토리를 지정하세요."
+    [[ -n "$target" ]]  || target="."
 
     check_dependencies
 

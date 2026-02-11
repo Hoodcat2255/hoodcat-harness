@@ -13,7 +13,7 @@ LOG_FILE="$LOG_DIR/hooks.log"
 mkdir -p "$LOG_DIR"
 
 log() {
-  echo "[$(date -Iseconds)] TASK_QUALITY_GATE: $1" >> "$LOG_FILE"
+  echo "[$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")] TASK_QUALITY_GATE: $1" >> "$LOG_FILE"
 }
 
 # stdin에서 hook 입력 읽기

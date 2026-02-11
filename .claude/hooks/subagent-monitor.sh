@@ -13,6 +13,6 @@ mkdir -p "$LOG_DIR"
 
 HOOK_INPUT=$(cat)
 
-echo "[$(date -Iseconds)] SUBAGENT_STOP: $HOOK_INPUT" >> "$LOG_FILE"
+echo "[$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")] SUBAGENT_STOP: $HOOK_INPUT" >> "$LOG_FILE"
 
 exit 0
