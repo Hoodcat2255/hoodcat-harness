@@ -73,6 +73,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **/team-review**: 대규모/고위험 변경에만 사용, 단순 변경은 서브에이전트 리뷰
 - **/qa-swarm**: 테스트 스위트가 다양한 프로젝트에만 사용, 소규모는 /test
 
+## 에이전트 & 스킬 Best Practices / Anti-Patterns
+
+@docs/research-claude-agent-skill-best-practices-antipatterns-20260212.md
+
 ## 스킬 작성 규칙
 
 스킬 파일은 `.claude/skills/<skill-name>/SKILL.md` 경로에 생성합니다.

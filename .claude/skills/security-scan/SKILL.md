@@ -8,7 +8,7 @@ description: |
 argument-hint: "<대상 디렉토리 또는 파일 (기본: 프로젝트 루트)>"
 user-invocable: true
 context: fork
-allowed-tools: Read, Write, Glob, Grep, Bash, Task
+allowed-tools: Read, Write, Glob, Grep, Bash(npm audit *), Bash(pip audit *), Bash(cargo audit *), Bash(govulncheck *), Bash(gh *), Bash(git *), Task
 ---
 
 # Security Scan Skill
@@ -34,22 +34,7 @@ $ARGUMENTS: 스캔 대상 디렉토리 또는 파일. 비어있으면 프로젝�
 
 ### 2. 의존성 취약점 검사
 
-프로젝트 타입에 맞는 audit 도구를 실행한다:
-
-```bash
-# Node.js
-npm audit --json 2>/dev/null || npx audit-ci --config /dev/null
-
-# Python
-pip audit 2>/dev/null || python -m pip_audit
-
-# Rust
-cargo audit 2>/dev/null
-
-# Go
-govulncheck ./... 2>/dev/null
-```
-
+프로젝트 타입에 맞는 의존성 audit 도구를 실행한다.
 도구가 설치되지 않은 경우 사용자에게 알리고 건너뛴다.
 
 ### 3. 코드 레벨 보안 패턴 검사

@@ -8,7 +8,7 @@ description: |
 argument-hint: "<테스트 대상: 파일, 모듈, 또는 --unit/--e2e/--regression>"
 user-invocable: true
 context: fork
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Task
 ---
 
 # Test Skill
@@ -37,17 +37,7 @@ Task(navigator): "$ARGUMENTS의 테스트 대상 코드와 기존 테스트를 �
 
 ### 2. 테스트 프레임워크 감지
 
-프로젝트의 테스트 환경을 자동 감지한다:
-
-```
-감지 순서:
-1. package.json → jest, vitest, mocha, playwright
-2. pyproject.toml / setup.cfg → pytest, unittest
-3. Cargo.toml → cargo test (내장)
-4. go.mod → go test (내장)
-5. 기존 테스트 파일 패턴 분석
-```
-
+프로젝트의 설정 파일과 기존 테스트 파일 패턴을 분석하여 테스트 프레임워크를 자동 감지한다.
 감지 실패 시 사용자에게 어떤 프레임워크를 사용할지 물어본다.
 
 ### 3. 테스트 작성
@@ -72,25 +62,11 @@ Task(navigator): "$ARGUMENTS의 테스트 대상 코드와 기존 테스트를 �
 
 ### 4. 테스트 실행
 
-작성한 테스트를 실행하고 결과를 수집한다:
-
-```bash
-# 프레임워크별 실행 명령
-jest: npx jest [파일]
-pytest: python -m pytest [파일] -v
-cargo: cargo test [모듈]
-go: go test ./[패키지] -v
-```
+프레임워크에 맞는 테스트 실행 명령을 사용하여 작성한 테스트를 실행하고 결과를 수집한다.
 
 ### 5. 커버리지 확인 (가능한 경우)
 
-프레임워크가 지원하면 커버리지를 확인한다:
-
-```bash
-jest: npx jest --coverage [파일]
-pytest: python -m pytest --cov=[모듈] [파일]
-go: go test -cover ./[패키지]
-```
+프레임워크가 지원하면 커버리지 옵션을 추가하여 실행한다.
 
 ## 출력
 

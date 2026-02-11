@@ -9,7 +9,7 @@ description: |
 argument-hint: "<리뷰 대상 파일 또는 변경 설명>"
 user-invocable: true
 context: fork
-allowed-tools: Task, Read, Glob, Grep, Bash, TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
+allowed-tools: Task, Read, Glob, Grep, Bash(git *), TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
 ---
 
 # Team Review Skill (Multi-Lens Review)

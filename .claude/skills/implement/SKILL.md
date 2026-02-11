@@ -9,7 +9,7 @@ argument-hint: "<태스크 설명 또는 tasks.md 참조>"
 user-invocable: true
 context: fork
 agent: workflow
-allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Bash(gh *)
 ---
 
 # Implement Skill
@@ -59,15 +59,7 @@ git checkout -b feat/{feature-name}
 
 ### Phase 4: 린트/포맷 실행
 
-프로젝트에 린터/포맷터가 설정되어 있으면 실행한다:
-
-```
-감지 우선순위:
-1. package.json scripts (lint, format)
-2. Makefile targets (lint, fmt)
-3. 설정 파일 (.eslintrc, .prettierrc, rustfmt.toml, pyproject.toml 등)
-```
-
+프로젝트의 린터/포맷터를 감지하여 실행한다.
 린트 에러가 발생하면 즉시 수정하고 재실행한다.
 
 ### Phase 5: 테스트

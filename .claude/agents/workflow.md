@@ -14,7 +14,16 @@ tools:
   - Edit
   - Glob
   - Grep
-  - Bash
+  - Bash(git *)
+  - Bash(npm *)
+  - Bash(npx *)
+  - Bash(yarn *)
+  - Bash(pnpm *)
+  - Bash(pytest *)
+  - Bash(cargo *)
+  - Bash(go *)
+  - Bash(make *)
+  - Bash(gh *)
   - TeamCreate
   - TaskCreate
   - TaskUpdate

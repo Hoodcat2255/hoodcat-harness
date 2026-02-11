@@ -10,7 +10,7 @@ argument-hint: "[주제]"
 user-invocable: true
 context: fork
 agent: general-purpose
-allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash
+allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash(gh *)
 ---
 
 # Deep Research
@@ -77,6 +77,8 @@ Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 - [출처 1](URL)
 - [출처 2](URL)
 ```
+
+유의미한 출처가 3개 미만이면 검색 키워드를 변형하여 추가 검색한다.
 
 조사 완료 후 사용자에게 핵심 5가지를 요약하여 보고한다.
 

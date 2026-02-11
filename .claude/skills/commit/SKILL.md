@@ -7,7 +7,7 @@ description: |
 argument-hint: "[커밋 메시지 힌트 (선택)]"
 user-invocable: true
 context: fork
-allowed-tools: Read, Glob, Grep, Bash
+allowed-tools: Read, Glob, Grep, Bash(git *)
 ---
 
 # Commit Skill

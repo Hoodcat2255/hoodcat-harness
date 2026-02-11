@@ -11,7 +11,7 @@ argument-hint: "[결정할 주제]"
 user-invocable: true
 context: fork
 agent: general-purpose
-allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash
+allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash(gh *)
 ---
 
 # Decide
@@ -114,6 +114,7 @@ Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 - **"정답 없음"도 답이다**: 근거가 불충분하거나 상황 의존적이면 솔직히 말한다
 - **조건부 권고 활용**: "A가 일반적으로 낫지만, ~한 경우에는 B가 적합"
 - **확신도 명시**: 근거의 양과 질에 따라 확신도를 솔직히 표기한다
+- **낮은 확신도 처리**: 확신도가 '낮음'인 경우 추가 조사를 권고한다
 
 ## 핸드오프 컨텍스트
 
