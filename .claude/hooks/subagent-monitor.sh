@@ -7,7 +7,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOG_DIR="$PROJECT_DIR/.claude/log"
-LOG_FILE="$LOG_DIR/sisyphus.log"
+LOG_FILE="$LOG_DIR/hooks.log"
 
 mkdir -p "$LOG_DIR"
 

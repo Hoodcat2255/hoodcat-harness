@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 디렉토리 구조
 
 - `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일)
+- `.claude/agents/` - 커스텀 에이전트 정의
 - `docs/` - 기능 문서 및 리서치 결과 저장
 
 ## 주요 스킬
@@ -33,48 +34,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 스킬 아키텍처
 
-스킬은 두 계층으로 구분된다:
+모든 스킬은 `context: fork`로 서브에이전트에서 격리 실행된다.
+메인 에이전트는 순수한 오케스트레이터로, 사용자 의도를 파악하여 적절한 스킬을 디스패치한다.
 
-### 워크플로우 스킬 (오케스트레이터)
-메인 컨텍스트에서 실행되며, 에이전트와 워커 스킬을 시퀀스로 조율한다.
-- implement, bugfix, hotfix, improve, new-project
-- `context: fork` 없음 — 유저가 중간 과정에 개입 가능
-- Sisyphus 가드: 서브워크플로우로 호출 시 이중 활성화 방지
+### 워크플로우 스킬
+서브에이전트에서 다중 Phase를 자율 실행하며, 워커 스킬과 에이전트를 조율한다.
+`agent: workflow` 사용.
+- bugfix, hotfix, implement, improve, new-project
 
 ### 워커 스킬
-`context: fork`로 서브에이전트에서 격리 실행된다.
-- fix, test, blueprint, deploy, security-scan, commit, deepresearch, decide, team-review, qa-swarm
+단일 책임의 독립 작업을 수행한다.
+- fix, test, blueprint, commit, deploy, security-scan, deepresearch, decide, team-review, qa-swarm
 
-## 스킬 작성 규칙
+### 에이전트 (5개)
+- **workflow**: 워크플로우 스킬 전용 오케스트레이터. Skill/Task/팀 도구 사용.
+- **reviewer**: 코드 품질 리뷰. 유지보수성, 패턴 일관성 평가.
+- **security**: 보안 리뷰. OWASP Top 10, 인증/인가 평가.
+- **architect**: 아키텍처 리뷰. 구조 적합성, 확장성 평가.
+- **navigator**: 코드베이스 탐색. 파일 매핑, 영향 범위 파악.
 
-스킬 파일은 `.claude/skills/<skill-name>/SKILL.md` 경로에 생성합니다.
+## 스킬 실행 모델
 
-필수 frontmatter 필드:
-- `name`: 스킬 식별자
-- `description`: 스킬 용도 및 트리거 조건
-
-선택적 필드 (워커 스킬용):
-- `context: fork` - 서브에이전트에서 실행 (워커 스킬에만 사용)
-- `agent` - 사용할 에이전트 유형
-- `allowed-tools` - 허용할 도구 목록
-
-## 논스탑 작업규칙 (Sisyphus)
-
-워크플로우 스킬(implement, new-project, bugfix, improve, hotfix)은 Stop Hook 기반 강제속행 메커니즘(Sisyphus)으로 모든 Phase를 완료할 때까지 멈추지 않는다.
-
-### 동작 방식
-- Phase 0에서 Sisyphus 가드로 상태를 확인한 후, 최상위 호출일 때만 `active`를 `true`로 설정
-- 서브워크플로우로 호출된 경우(이미 `active=true`) 활성화를 건너뛰고 부모가 생명주기를 관리
-- 각 Phase 시작 시 `phase` 필드를 업데이트
-- Stop Hook(`.claude/hooks/sisyphus-gate.sh`)이 종료를 차단하고 다음 Phase로 진행하도록 유도
-- 모든 Phase 완료 후, 최상위 호출인 경우에만 `active`를 `false`로 설정하여 종료 허용
+모든 스킬은 `context: fork`로 서브에이전트에서 실행된다.
+서브에이전트는 자체 컨텍스트에서 완료까지 자율 실행되므로, 별도의 강제속행 메커니즘이 불필요하다.
 
 ### 검증 규칙
 - 빌드/테스트 결과는 **실제 명령어의 exit code**로만 판단한다
 - 텍스트 보고("통과했습니다")를 신뢰하지 않는다
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
-### 에이전트팀 품질 게이트 훅
+### 품질 게이트 훅
 - `.claude/hooks/task-quality-gate.sh` (TaskCompleted): 구현 태스크 완료 시 빌드/테스트 자동 검증. exit 2로 완료 차단 가능.
 - `.claude/hooks/teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도.
 
@@ -84,22 +73,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **/team-review**: 대규모/고위험 변경에만 사용, 단순 변경은 서브에이전트 리뷰
 - **/qa-swarm**: 테스트 스위트가 다양한 프로젝트에만 사용, 소규모는 /test
 
-### 안전장치
+## 스킬 작성 규칙
 
-| 장치 | 설명 |
-|------|------|
-| maxIterations | Stop 이벤트 최대 횟수 (기본 15, new-project는 20) |
-| safety-stopped | maxIterations 도달 시 자동 비활성화 후 종료 허용 |
-| jq 미설치 | fallback으로 종료 허용 |
-| flags 파일 없음 | 종료 허용 |
-| active=false 기본값 | 일반 작업에 영향 없음 |
+스킬 파일은 `.claude/skills/<skill-name>/SKILL.md` 경로에 생성합니다.
 
-### 수동 비활성화
+필수 frontmatter 필드:
+- `name`: 스킬 식별자
+- `description`: 스킬 용도 및 트리거 조건
+- `context: fork` - 모든 스킬에 필수
 
-워크플로우를 강제 중단해야 하는 경우:
-```bash
-jq '.active=false | .phase="manual-stopped"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
+선택적 필드:
+- `agent` - 사용할 에이전트 유형 (워크플로우 스킬은 `workflow`)
+- `allowed-tools` - 허용할 도구 목록
 
 ## 문서 작성 규칙
 

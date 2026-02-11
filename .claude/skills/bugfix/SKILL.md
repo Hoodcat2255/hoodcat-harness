@@ -8,6 +8,9 @@ description: |
   or debug unexpected behavior.
 argument-hint: "<버그 설명 또는 에러 메시지>"
 user-invocable: true
+context: fork
+agent: workflow
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash, TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
 ---
 
 # Bugfix Workflow
@@ -19,28 +22,7 @@ user-invocable: true
 
 ## DO/REVIEW 시퀀스
 
-### Phase 0: Sisyphus 관리
-
-Sisyphus 상태를 확인한다:
-
-```bash
-ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
-```
-
-- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
-  ```bash
-  jq --arg wf "bugfix" --arg ts "$(date -Iseconds)" \
-    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-  ```
-
-- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
-
 ### Phase 1: 진단 + 수정
-
-```bash
-jq '.phase="diagnose-fix"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 먼저 버그 복잡도를 판단한다:
 
@@ -98,10 +80,6 @@ DO: Skill("fix", "$ARGUMENTS")
 
 ### Phase 2: 리뷰
 
-```bash
-jq '.phase="review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 수정된 코드의 품질을 검증한다:
 
 ```
@@ -112,10 +90,6 @@ REVIEW: Task(reviewer): "/fix가 수정한 코드를 리뷰하라. 수정이 적
 - BLOCK → 수정 후 재리뷰 (최대 2회)
 
 ### Phase 3: 검증
-
-```bash
-jq '.phase="verification"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 회귀 테스트를 실행하여 수정이 다른 기능을 깨뜨리지 않았는지 확인한다.
 **검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
@@ -136,16 +110,6 @@ DO: Skill("test", "--regression")
 
 1. 버그 수정 + 리뷰 통과 + 회귀 테스트 통과
 2. 사용자가 중단을 요청
-
-## Sisyphus 비활성화
-
-이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
-
-```bash
-jq '.active=false | .phase="done"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

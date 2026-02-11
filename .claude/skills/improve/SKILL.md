@@ -7,6 +7,9 @@ description: |
   to enhance, extend, or improve existing functionality.
 argument-hint: "<개선할 기능 설명>"
 user-invocable: true
+context: fork
+agent: workflow
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Improve Workflow
@@ -18,28 +21,7 @@ user-invocable: true
 
 ## DO/REVIEW 시퀀스
 
-### Phase 0: Sisyphus 관리
-
-Sisyphus 상태를 확인한다:
-
-```bash
-ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
-```
-
-- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
-  ```bash
-  jq --arg wf "improve" --arg ts "$(date -Iseconds)" \
-    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-  ```
-
-- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
-
 ### Phase 1: 분석
-
-```bash
-jq '.phase="analysis"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 navigator 에이전트로 영향 범위를 파악한다:
 
@@ -64,10 +46,6 @@ REVIEW: Task(architect): "개선 설계가 기존 아키텍처와 조화로운�
 
 ### Phase 2: 개발
 
-```bash
-jq '.phase="development"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 ```
 DO: Skill("implement", "$ARGUMENTS")
 REVIEW: Task(reviewer): "변경된 코드의 품질을 리뷰하라. 기존 패턴과의 일관성에 주의."
@@ -77,10 +55,6 @@ REVIEW: Task(reviewer): "변경된 코드의 품질을 리뷰하라. 기존 패�
 - BLOCK → 수정 후 재리뷰
 
 ### Phase 3: 검증
-
-```bash
-jq '.phase="verification"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 **검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
@@ -100,16 +74,6 @@ DO: Skill("test", "--regression")
 
 1. 회귀 테스트 전체 통과
 2. 사용자가 중단을 요청
-
-## Sisyphus 비활성화
-
-이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
-
-```bash
-jq '.active=false | .phase="done"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

@@ -7,6 +7,9 @@ description: |
   to build something new from the ground up.
 argument-hint: "<프로젝트 또는 기능 설명>"
 user-invocable: true
+context: fork
+agent: workflow
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash, TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
 ---
 
 # New Project Workflow
@@ -18,31 +21,10 @@ user-invocable: true
 
 ## DO/REVIEW 시퀀스
 
-$ARGUMENTS를 기반으로 다음 단계를 논스탑으로 순차 실행한다.
+$ARGUMENTS를 기반으로 다음 단계를 순차 실행한다.
 각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
 
-### Phase 0: Sisyphus 관리
-
-Sisyphus 상태를 확인한다:
-
-```bash
-ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
-```
-
-- **`active=false`** (최상위 호출): Sisyphus를 활성화한다 (maxIterations=20). 이후 종료 시 비활성화 책임이 있다.
-  ```bash
-  jq --arg wf "new-project" --arg ts "$(date -Iseconds)" \
-    '.active=true | .workflow=$wf | .maxIterations=20 | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-  ```
-
-- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
-
 ### Phase 1: 기획
-
-```bash
-jq '.phase="planning"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 ```
 DO: Skill("blueprint", "$ARGUMENTS")
@@ -59,10 +41,6 @@ REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하
 
 ### Phase 2: 기술조사 (필요시)
 
-```bash
-jq '.phase="research"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 /blueprint 과정에서 기술 선택이 불확실한 경우에만 실행한다:
 
 ```
@@ -74,10 +52,6 @@ REVIEW: Task(architect): "조사 결과를 바탕으로, 이 기술 선택이 �
 - BLOCK → 대안 기술 조사 후 재리뷰
 
 ### Phase 3: 개발
-
-```bash
-jq '.phase="development"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 /blueprint이 생성한 tasks.md의 태스크를 구현한다.
 
@@ -148,10 +122,6 @@ REVIEW: Task(security): "보안 관점에서 리뷰하라"
 
 ### Phase 4: QA
 
-```bash
-jq '.phase="qa"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 모든 구현이 완료되면 테스트를 실행한다.
 **검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
@@ -169,14 +139,10 @@ DO: Skill("test", "<전체 또는 변경된 모듈>")
 
 ### Phase 5: 배포 (선택)
 
-```bash
-jq '.phase="deploy"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 사용자가 배포를 요청한 경우에만 실행:
 
 ```
-DO: Skill("deploy", "<배포 환경>")  (Phase 4에서 구현 예정)
+DO: Skill("deploy", "<배포 환경>")
 REVIEW: Task(security): "배포 설정이 안전한가?"
 ```
 
@@ -188,16 +154,6 @@ REVIEW: Task(security): "배포 설정이 안전한가?"
 1. 모든 Phase가 성공적으로 완료
 2. 배포 없이 QA까지 통과 (배포 미요청 시)
 3. 사용자가 중단을 요청
-
-## Sisyphus 비활성화
-
-이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
-
-```bash
-jq '.active=false | .phase="done"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

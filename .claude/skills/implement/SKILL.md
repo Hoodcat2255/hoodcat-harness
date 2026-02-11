@@ -7,6 +7,9 @@ description: |
   to write or create code for a feature or task.
 argument-hint: "<태스크 설명 또는 tasks.md 참조>"
 user-invocable: true
+context: fork
+agent: workflow
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Implement Skill
@@ -17,33 +20,12 @@ $ARGUMENTS: 태스크 설명, 또는 `/blueprint`이 생성한 tasks.md의 특�
 
 ## DO/REVIEW 시퀀스
 
-$ARGUMENTS를 기반으로 다음 단계를 논스탑으로 순차 실행한다.
+$ARGUMENTS를 기반으로 다음 단계를 순차 실행한다.
 각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
-
-### Phase 0: Sisyphus 관리
-
-Sisyphus 상태를 확인한다:
-
-```bash
-ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
-```
-
-- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
-  ```bash
-  jq --arg wf "implement" --arg ts "$(date -Iseconds)" \
-    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-  ```
-
-- **`active=true`** (서브워크플로우, 예: /improve에서 호출됨): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
 
 ### Phase 1: 컨텍스트 파악
 
-phase 상태를 업데이트하고 프로젝트 규칙과 관련 코드를 탐색한다:
-
-```bash
-jq '.phase="context"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
+프로젝트 규칙과 관련 코드를 탐색한다:
 
 ```
 DO: Task(navigator): "$ARGUMENTS 구현에 관련된 파일을 탐색하라"
@@ -68,10 +50,6 @@ git checkout -b feat/{feature-name}
 
 ### Phase 3: 코드 작성
 
-```bash
-jq '.phase="coding"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 기존 코드 패턴을 따라 구현한다:
 
 - **기존 파일 수정**: Edit 도구 사용 (정확한 old_string 매칭)
@@ -94,10 +72,6 @@ jq '.phase="coding"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/
 
 ### Phase 5: 테스트
 
-```bash
-jq '.phase="testing"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 구현한 코드에 대한 테스트를 작성하고 실행한다.
 **검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
@@ -116,10 +90,6 @@ DO: Skill("test", "$ARGUMENTS")
 테스트 프레임워크가 없거나 단순 스크립트인 경우 건너뛴다.
 
 ### Phase 6: 리뷰
-
-```bash
-jq '.phase="review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 구현 완료 후, reviewer 에이전트에게 리뷰를 요청한다.
 인증/보안 관련 코드가 포함된 경우, security 에이전트에게도 리뷰를 요청한다.
@@ -148,16 +118,6 @@ REVIEW: Task(reviewer): "다음 파일들의 코드 품질을 리뷰하라: [변
 1. 모든 Phase가 성공적으로 완료
 2. 테스트 프레임워크 없이 리뷰까지 통과 (Phase 5 건너뜀)
 3. 사용자가 중단을 요청
-
-## Sisyphus 비활성화
-
-이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
-
-```bash
-jq '.active=false | .phase="done"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 

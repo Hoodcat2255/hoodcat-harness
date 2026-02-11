@@ -8,7 +8,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOG_DIR="$PROJECT_DIR/.claude/log"
-LOG_FILE="$LOG_DIR/sisyphus.log"
+LOG_FILE="$LOG_DIR/hooks.log"
 
 mkdir -p "$LOG_DIR"
 
@@ -30,19 +30,6 @@ agent_name=$(echo "$input" | jq -r '.agent.name // ""' 2>/dev/null || echo "")
 team_name=$(echo "$input" | jq -r '.team.name // ""' 2>/dev/null || echo "")
 
 log "Teammate idle: agent=$agent_name team=$team_name"
-
-# Sisyphus 활성 상태 확인 - 워크플로우 진행 중일 때만 유휴 체크
-FLAGS_FILE="$PROJECT_DIR/.claude/flags/sisyphus.json"
-if [ -f "$FLAGS_FILE" ]; then
-  active=$(jq -r '.active' "$FLAGS_FILE" 2>/dev/null || echo "false")
-  if [ "$active" != "true" ]; then
-    log "INFO: Sisyphus inactive, allowing idle for agent=$agent_name"
-    exit 0
-  fi
-else
-  log "INFO: No flags file, allowing idle"
-  exit 0
-fi
 
 # 팀 태스크 디렉토리 확인
 TASKS_DIR="$HOME/.claude/tasks/$team_name"

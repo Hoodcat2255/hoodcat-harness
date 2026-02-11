@@ -7,6 +7,9 @@ description: |
   or any request to fix a security vulnerability or critical production issue.
 argument-hint: "<보안 이슈 또는 긴급 이슈 설명>"
 user-invocable: true
+context: fork
+agent: workflow
+allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash
 ---
 
 # Hotfix Workflow
@@ -18,28 +21,7 @@ user-invocable: true
 
 ## DO/REVIEW 시퀀스
 
-### Phase 0: Sisyphus 관리
-
-Sisyphus 상태를 확인한다:
-
-```bash
-ACTIVE=$(jq -r '.active' .claude/flags/sisyphus.json 2>/dev/null || echo "false")
-```
-
-- **`active=false`** (최상위 호출): Sisyphus를 활성화한다. 이후 종료 시 비활성화 책임이 있다.
-  ```bash
-  jq --arg wf "hotfix" --arg ts "$(date -Iseconds)" \
-    '.active=true | .workflow=$wf | .currentIteration=0 | .startedAt=$ts | .phase="init"' \
-    .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-  ```
-
-- **`active=true`** (서브워크플로우): 활성화를 건너뛴다. 부모 워크플로우가 Sisyphus 생명주기를 관리한다.
-
 ### Phase 1: 심각도 평가
-
-```bash
-jq '.phase="severity-assessment"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 security 에이전트가 먼저 이슈의 심각도를 판단한다:
 
@@ -53,10 +35,6 @@ security 결과에서 확인:
 
 ### Phase 2: 수정
 
-```bash
-jq '.phase="patching"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 /fix 스킬이 취약 코드를 찾고 패치한다:
 
 ```
@@ -64,10 +42,6 @@ DO: Skill("fix", "$ARGUMENTS")
 ```
 
 ### Phase 3: 이중 리뷰
-
-```bash
-jq '.phase="dual-review"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
 
 보안 수정은 security + reviewer 두 에이전트가 모두 리뷰한다.
 **반드시 하나의 응답에서 두 Task를 동시에 호출하여 병렬 실행한다:**
@@ -84,10 +58,6 @@ REVIEW (병렬 실행):
 
 ### Phase 4: 검증
 
-```bash
-jq '.phase="verification"' .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-
 **검증 규칙**: 빌드/테스트 결과는 실제 명령어의 exit code로만 판단한다. 텍스트 보고("통과했습니다")를 신뢰하지 않는다.
 
 테스트와 보안 스캔을 함께 실행한다:
@@ -98,7 +68,7 @@ DO: Skill("test", "--regression")
 
 보안 스캔 스킬이 있으면 함께 실행:
 ```
-DO: Skill("security-scan", "<대상 디렉토리>")  (Phase 4에서 구현 예정)
+DO: Skill("security-scan", "<대상 디렉토리>")
 ```
 
 - 전체 통과 → 완료
@@ -108,22 +78,10 @@ DO: Skill("security-scan", "<대상 디렉토리>")  (Phase 4에서 구현 예�
   DO: Skill("test", "--regression")
   ```
 
-security-scan 스킬이 아직 없으면 테스트 통과만으로 진행하고 사용자에게 알린다.
-
 ## 종료 조건
 
 1. 패치 + 이중 리뷰 통과 + 테스트 통과
 2. 사용자가 중단을 요청
-
-## Sisyphus 비활성화
-
-이 워크플로우가 Sisyphus를 직접 활성화한 경우(최상위 호출)에만 비활성화한다:
-
-```bash
-jq '.active=false | .phase="done"' \
-  .claude/flags/sisyphus.json > /tmp/sisyphus.tmp && mv /tmp/sisyphus.tmp .claude/flags/sisyphus.json
-```
-서브워크플로우로 호출된 경우 비활성화를 건너뛴다.
 
 ## 완료 보고
 
