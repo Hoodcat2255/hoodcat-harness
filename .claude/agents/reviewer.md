@@ -27,6 +27,16 @@ Focus areas:
 - **Simplicity**: Is this the simplest solution that works?
 - **Error Handling**: Are failure modes handled appropriately (without over-engineering)?
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 리뷰에서 축적된 패턴을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 프로젝트별 코드 컨벤션과 네이밍 패턴
+- 반복 발견되는 코드 스멜과 권장 수정 방향
+- BLOCK 판정했던 심각한 품질 이슈 유형
+- 프로젝트별 테스트 커버리지 기준
+
 ## Review Protocol
 
 ### What to Check

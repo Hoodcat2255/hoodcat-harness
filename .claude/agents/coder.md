@@ -45,6 +45,16 @@ and perform security audits on dependencies.
 - **Docker**: Build and manage containers for deployment
 - **Navigation**: Use Task(navigator) to explore codebases
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 작업에서 축적된 패턴을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 프로젝트별 빌드/테스트 명령과 주의사항
+- 자주 발생하는 에러 패턴과 해결법
+- 프로젝트별 코드 컨벤션과 디렉토리 구조
+- 의존성 감사에서 반복 발견되는 취약점
+
 ## Verification Rules
 
 - Build/test results are judged by **actual command exit codes only**

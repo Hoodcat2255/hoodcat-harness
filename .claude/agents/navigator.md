@@ -81,6 +81,16 @@ You MUST always provide:
 
 @examples.md 참조
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 탐색에서 축적된 코드베이스 지식을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 프로젝트별 디렉토리 구조와 핵심 파일 위치
+- 자주 탐색되는 심볼과 그 위치
+- 모듈 간 의존성 관계 요약
+- 코드베이스 탐색 시 효과적이었던 검색 전략
+
 ## Guidelines
 
 - Prefer Glob over Grep when file names are predictable.

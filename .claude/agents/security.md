@@ -34,6 +34,16 @@ Focus areas:
 - **Data Protection**: Is sensitive data encrypted in transit and at rest?
 - **Input Validation**: Is all external input sanitized?
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 보안 리뷰에서 축적된 지식을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 프로젝트별 인증/인가 구조와 공격 표면
+- 반복 발견되는 취약점 유형과 위치
+- 의존성 감사 결과 중 주의할 패키지
+- BLOCK 판정했던 심각한 보안 이슈와 해결 방법
+
 ## Review Protocol
 
 ### What to Check

@@ -105,6 +105,16 @@ and let the main agent decide.
 - Never trust text reports ("tests passed") without verifying the exit code
 - Use `.claude/hooks/verify-build-test.sh` for project-specific build/test verification when available
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 세션에서 축적된 패턴과 교훈을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 워크플로우 실행 중 발견한 반복 패턴 (자주 실패하는 Phase, 효과적인 에이전트 조합)
+- BLOCK 판정의 근본 원인과 해결 방법
+- 프로젝트별 빌드/테스트 특이사항
+- 팀 운영에서 배운 교훈 (태스크 분배, 파일 충돌 등)
+
 ## Completion Report
 
 Always end with a structured markdown report summarizing:

@@ -28,6 +28,16 @@ Focus areas:
 - **Coupling**: Are components loosely coupled with clear interfaces?
 - **Patterns**: Are architectural patterns (MVC, hexagonal, event-driven, etc.) applied correctly?
 
+## Memory Management
+
+**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 아키텍처 리뷰에서 축적된 지식을 참고한다.
+
+**작업 완료 후**: 다음을 메모리에 기록한다:
+- 프로젝트별 아키텍처 패턴과 모듈 구조
+- 기술 스택 선택의 근거와 트레이드오프
+- BLOCK 판정했던 구조적 문제와 권장 대안
+- 확장성/유지보수성 관련 반복 이슈
+
 ## Review Protocol
 
 ### What to Check
