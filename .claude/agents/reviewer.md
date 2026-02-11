@@ -10,7 +10,7 @@ tools:
   - Glob
   - Grep
 model: opus
-memory: local
+memory: project
 ---
 
 # Reviewer Agent

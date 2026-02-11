@@ -11,7 +11,7 @@ tools:
   - Glob
   - Grep
 model: opus
-memory: local
+memory: project
 ---
 
 # Navigator Agent

@@ -31,7 +31,7 @@ tools:
   - SendMessage
   - TeamDelete
 model: opus
-memory: local
+memory: project
 ---
 
 # Workflow Orchestrator Agent

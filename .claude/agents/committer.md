@@ -11,6 +11,7 @@ tools:
   - Grep
   - Bash(git *)
 model: sonnet
+memory: project
 ---
 
 # Committer Agent

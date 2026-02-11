@@ -18,7 +18,7 @@ tools:
 mcpServers:
   - context7
 model: opus
-memory: local
+memory: project
 ---
 
 # Researcher Agent

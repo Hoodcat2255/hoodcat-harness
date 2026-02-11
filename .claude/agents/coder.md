@@ -26,7 +26,7 @@ tools:
   - Bash(govulncheck *)
   - Bash(gh *)
 model: opus
-memory: local
+memory: project
 ---
 
 # Coder Agent

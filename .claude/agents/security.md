@@ -17,7 +17,7 @@ tools:
   - Bash(go vet *)
   - Bash(gh api *)
 model: opus
-memory: local
+memory: project
 ---
 
 # Security Agent
