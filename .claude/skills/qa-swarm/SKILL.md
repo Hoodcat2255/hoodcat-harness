@@ -9,7 +9,7 @@ description: |
 argument-hint: "<프로젝트 경로 또는 테스트 대상 설명>"
 user-invocable: true
 context: fork
-allowed-tools: Task, Skill, Read, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
+agent: workflow
 ---
 
 # QA Swarm Skill

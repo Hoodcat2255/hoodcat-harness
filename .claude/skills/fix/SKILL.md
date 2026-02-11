@@ -7,7 +7,7 @@ description: |
 argument-hint: "<버그 설명 또는 에러 메시지>"
 user-invocable: false
 context: fork
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Task
+agent: coder
 ---
 
 # Fix Skill

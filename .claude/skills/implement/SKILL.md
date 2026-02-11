@@ -9,7 +9,6 @@ argument-hint: "<태스크 설명 또는 tasks.md 참조>"
 user-invocable: true
 context: fork
 agent: workflow
-allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Bash(gh *)
 ---
 
 # Implement Skill

@@ -9,7 +9,6 @@ argument-hint: "<프로젝트 또는 기능 설명>"
 user-invocable: true
 context: fork
 agent: workflow
-allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Bash(gh *), TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
 ---
 
 # New Project Workflow

@@ -8,7 +8,7 @@ description: |
 argument-hint: "<대상 디렉토리 또는 파일 (기본: 프로젝트 루트)>"
 user-invocable: true
 context: fork
-allowed-tools: Read, Write, Glob, Grep, Bash(npm audit *), Bash(pip audit *), Bash(cargo audit *), Bash(govulncheck *), Bash(gh *), Bash(git *), Task
+agent: coder
 ---
 
 # Security Scan Skill

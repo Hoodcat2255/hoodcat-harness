@@ -8,7 +8,7 @@ description: |
 argument-hint: "<기능 또는 프로젝트 설명>"
 user-invocable: true
 context: fork
-allowed-tools: Read, Write, Glob, Grep, Bash(gh *), Bash(git *), Task, WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs
+agent: researcher
 ---
 
 # Blueprint Skill

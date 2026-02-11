@@ -8,7 +8,7 @@ description: |
 argument-hint: "<테스트 대상: 파일, 모듈, 또는 --unit/--e2e/--regression>"
 user-invocable: true
 context: fork
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Task
+agent: coder
 ---
 
 # Test Skill

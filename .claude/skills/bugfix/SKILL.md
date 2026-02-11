@@ -10,7 +10,6 @@ argument-hint: "<버그 설명 또는 에러 메시지>"
 user-invocable: true
 context: fork
 agent: workflow
-allowed-tools: Skill, Task, Read, Write, Edit, Glob, Grep, Bash(git *), Bash(npm *), Bash(npx *), Bash(yarn *), Bash(pnpm *), Bash(pytest *), Bash(cargo *), Bash(go *), Bash(make *), Bash(gh *), TeamCreate, TaskCreate, TaskUpdate, TaskList, SendMessage, TeamDelete
 ---
 
 # Bugfix Workflow

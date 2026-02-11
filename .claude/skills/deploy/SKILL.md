@@ -9,7 +9,7 @@ argument-hint: "<배포 환경: docker, github-actions, vercel 등>"
 user-invocable: true
 context: fork
 disable-model-invocation: true
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash(docker *), Bash(git *), Bash(npm *), Bash(cargo *), Bash(go *), Task
+agent: coder
 ---
 
 # Deploy Skill

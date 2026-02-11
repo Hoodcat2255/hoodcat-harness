@@ -10,8 +10,7 @@ description: |
 argument-hint: "[결정할 주제]"
 user-invocable: true
 context: fork
-agent: general-purpose
-allowed-tools: WebSearch, WebFetch, mcp__context7__resolve-library-id, mcp__context7__query-docs, Read, Write, Glob, Grep, Bash(gh *)
+agent: researcher
 ---
 
 # Decide

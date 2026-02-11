@@ -46,8 +46,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 단일 책임의 독립 작업을 수행한다.
 - fix, test, blueprint, commit, deploy, security-scan, deepresearch, decide, team-review, qa-swarm
 
-### 에이전트 (5개)
-- **workflow**: 워크플로우 스킬 전용 오케스트레이터. Skill/Task/팀 도구 사용.
+### 에이전트 (8개)
+- **workflow**: 워크플로우 + 팀 오케스트레이션. Skill/Task/팀 도구.
+- **researcher**: 리서치/기획 워커. WebSearch/Context7/문서 작성.
+- **coder**: 코딩 워커. 파일 읽기/쓰기 + 빌드/테스트/감사 명령.
+- **committer**: Git 워커. 읽기 전용 + git 명령만. sonnet.
 - **reviewer**: 코드 품질 리뷰. 유지보수성, 패턴 일관성 평가.
 - **security**: 보안 리뷰. OWASP Top 10, 인증/인가 평가.
 - **architect**: 아키텍처 리뷰. 구조 적합성, 확장성 평가.
@@ -87,8 +90,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `context: fork` - 모든 스킬에 필수
 
 선택적 필드:
-- `agent` - 사용할 에이전트 유형 (워크플로우 스킬은 `workflow`)
-- `allowed-tools` - 허용할 도구 목록
+- `agent` - 사용할 에이전트 유형. 도구 권한은 에이전트가 관리한다.
 
 ## 문서 작성 규칙
 
