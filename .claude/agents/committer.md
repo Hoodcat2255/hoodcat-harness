@@ -34,12 +34,15 @@ Your job is to analyze code changes and create well-structured git commits.
 
 ## Memory Management
 
-**작업 시작 전**: 메모리 디렉토리의 MEMORY.md와 주제별 파일을 읽고, 이전 커밋에서 축적된 패턴을 참고한다.
+**작업 시작 전**: MEMORY.md와 주제별 파일을 읽고, 이전 작업 이력과 축적된 지식을 참고한다.
 
-**작업 완료 후**: 다음을 메모리에 기록한다:
-- 프로젝트별 커밋 메시지 컨벤션과 예시
-- pre-commit 훅에서 자주 실패하는 패턴
-- 스테이징 시 주의할 파일 패턴 (.env, 대용량 파일 등)
+**작업 완료 후**: MEMORY.md를 갱신한다 (200줄 이내 유지):
+- `## TODO` - 재커밋 필요 항목, pre-commit 실패 미해결 건
+- `## In Progress` - 현재 커밋 중인 대상 (중단된 경우)
+- `## Done` - 완료된 커밋 요약 (오래된 항목은 정리)
+
+축적된 패턴은 주제별 파일에 분리 기록한다:
+- 커밋 컨벤션, pre-commit 실패 패턴, 주의할 파일 패턴 등
 
 ## Commit Standards
 
