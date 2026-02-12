@@ -186,6 +186,54 @@ copy_statusline() {
     fi
 }
 
+copy_harness_md() {
+    local target="$1"
+    local src="${SOURCE_CLAUDE_DIR}/harness.md"
+    local dst="${target}/.claude/harness.md"
+
+    if [[ ! -f "$src" ]]; then
+        log_debug "소스 harness.md가 없습니다."
+        return
+    fi
+
+    if dry_run_guard "harness.md 복사"; then
+        cp "$src" "$dst"
+        log_debug "harness.md 복사 완료"
+    fi
+}
+
+inject_harness_import() {
+    local target="$1"
+    local claude_md="${target}/CLAUDE.md"
+    local import_line="@.claude/harness.md"
+
+    # CLAUDE.md가 없으면 스킵
+    if [[ ! -f "$claude_md" ]]; then
+        log_debug "대상 CLAUDE.md가 없습니다. import 주입을 건너뜁니다."
+        return
+    fi
+
+    # 이미 import가 있으면 스킵
+    if grep -qF "$import_line" "$claude_md" 2>/dev/null; then
+        log_debug "CLAUDE.md에 harness.md import가 이미 존재합니다."
+        return
+    fi
+
+    if dry_run_guard "CLAUDE.md에 harness.md import 추가"; then
+        # 파일 끝에 개행 보장 후 import 섹션 추가
+        if [[ -s "$claude_md" ]] && [[ "$(tail -c 1 "$claude_md" | wc -l)" -eq 0 ]]; then
+            echo "" >> "$claude_md"
+        fi
+        {
+            echo ""
+            echo "## hoodcat-harness 공통 지침"
+            echo ""
+            echo "$import_line"
+        } >> "$claude_md"
+        log_info "CLAUDE.md에 harness.md import를 추가했습니다."
+    fi
+}
+
 write_harness_meta() {
     local target="$1"
     local mode="${2:-install}"
@@ -398,23 +446,31 @@ cmd_install() {
     log_info "상태표시줄 스크립트 설치 중..."
     copy_statusline "$target"
 
-    # 3. 런타임 디렉토리 생성
+    # 3. harness.md 복사
+    log_info "공통 지침 파일 설치 중..."
+    copy_harness_md "$target"
+
+    # 4. 런타임 디렉토리 생성
     log_info "런타임 디렉토리 생성 중..."
     init_runtime_dirs "$target"
 
-    # 4. settings.local.json 복사
+    # 5. settings.local.json 복사
     log_info "설정 파일 복사 중..."
     copy_settings "$target" "install"
 
-    # 5. .gitignore 업데이트
+    # 6. .gitignore 업데이트
     log_info ".gitignore 업데이트 중..."
     update_target_gitignore "$target"
 
-    # 6. .harness-meta.json 기록
+    # 7. CLAUDE.md에 harness.md import 주입
+    log_info "CLAUDE.md harness import 확인 중..."
+    inject_harness_import "$target"
+
+    # 8. .harness-meta.json 기록
     log_info "메타 정보 기록 중..."
     write_harness_meta "$target" "install"
 
-    # 7. git 설정
+    # 9. git 설정
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
 
@@ -429,11 +485,13 @@ cmd_install() {
             echo "  .claude/${dir}/ (${count}개 파일)"
         fi
     done
+    echo "  .claude/harness.md"
     echo "  .claude/statusline.sh"
     echo "  .claude/settings.local.json"
     echo ""
     echo -e "${YELLOW}[참고]${NC} CLAUDE.md는 프로젝트별로 다르므로 복사하지 않았습니다."
     echo -e "${YELLOW}[참고]${NC} 대상 프로젝트에 맞는 CLAUDE.md를 직접 작성하세요."
+    echo -e "${YELLOW}[참고]${NC} CLAUDE.md에 @.claude/harness.md가 없으면 자동으로 추가됩니다."
 }
 
 cmd_update() {
@@ -493,7 +551,7 @@ cmd_update() {
     done
 
     # standalone 파일 변경 감지
-    local standalone_files=(statusline.sh settings.local.json)
+    local standalone_files=(harness.md statusline.sh settings.local.json)
     for file in "${standalone_files[@]}"; do
         local src="${SOURCE_CLAUDE_DIR}/${file}"
         local dst="${target}/.claude/${file}"
@@ -529,15 +587,23 @@ cmd_update() {
     log_info "상태표시줄 스크립트 업데이트 중..."
     copy_statusline "$target"
 
-    # 3. settings.local.json 업데이트
+    # 3. harness.md 업데이트
+    log_info "공통 지침 파일 업데이트 중..."
+    copy_harness_md "$target"
+
+    # 4. settings.local.json 업데이트
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
 
-    # 4. 런타임 파일 보존 (memory, log)
+    # 5. 런타임 파일 보존 (memory, log)
     log_info "런타임 파일 보존 확인..."
     init_runtime_dirs "$target"  # 디렉토리가 없으면 생성
 
-    # 5. .harness-meta.json 갱신
+    # 6. CLAUDE.md에 harness.md import 주입
+    log_info "CLAUDE.md harness import 확인 중..."
+    inject_harness_import "$target"
+
+    # 7. .harness-meta.json 갱신
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
 
@@ -566,6 +632,7 @@ cmd_delete() {
             echo "  .claude/${dir}/"
         fi
     done
+    echo "  .claude/harness.md"
     echo "  .claude/statusline.sh"
     echo "  .claude/settings.local.json"
     echo "  .claude/.harness-meta.json"
