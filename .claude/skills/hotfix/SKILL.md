@@ -29,8 +29,8 @@ REVIEW: Task(security): "다음 이슈의 심각도를 평가하라: $ARGUMENTS.
 ```
 
 security 결과에서 확인:
-- **Critical/High** → 즉시 Phase 2로 진행
-- **Medium/Low** → 사용자에게 보고하고 /bugfix로 전환할지 물어봄
+- **Critical/High** -> 즉시 Phase 2로 진행
+- **Medium/Low** -> 사용자에게 보고하고 /bugfix로 전환할지 물어봄
 
 ### Phase 2: 수정
 
@@ -52,8 +52,8 @@ REVIEW (병렬 실행):
 두 결과를 모두 수집한 후 판단한다.
 ```
 
-- 둘 다 PASS/WARN → Phase 4로 진행
-- 하나라도 BLOCK → 수정 후 재리뷰 (최대 2회)
+- 둘 다 PASS/WARN -> Phase 4로 진행
+- 하나라도 BLOCK -> 수정 후 재리뷰 (최대 2회)
 
 ### Phase 4: 검증
 
@@ -67,11 +67,11 @@ DO: Skill("test", "--regression")
 
 보안 스캔 스킬이 있으면 함께 실행:
 ```
-DO: Skill("security-scan", "<대상 디렉토리>")
+DO: Skill("security-scan", ".")
 ```
 
-- 전체 통과 → 완료
-- 실패 있음 → 수정 후 재검증
+- 전체 통과 -> 완료
+- 실패 있음 -> 수정 후 재검증
   ```
   DO: Skill("fix", "<실패 내용>")
   DO: Skill("test", "--regression")

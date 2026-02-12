@@ -30,7 +30,7 @@ agent: workflow
 - 단일 파일의 명확한 로직 오류
 - 재현 방법이 명확함
 
-→ 기존 /fix 서브에이전트로 진행:
+-> 기존 /fix 서브에이전트로 진행:
 
 ```
 DO: Skill("fix", "$ARGUMENTS")
@@ -42,7 +42,7 @@ DO: Skill("fix", "$ARGUMENTS")
 - 다중 모듈에 걸친 상호작용 문제
 - 여러 가능한 원인이 존재
 
-→ 에이전트팀 기반 경쟁 가설 디버깅:
+-> 에이전트팀 기반 경쟁 가설 디버깅:
 
 ```
 1. TeamCreate("debug-team")
@@ -60,7 +60,8 @@ DO: Skill("fix", "$ARGUMENTS")
 
 4. 각 가설별 디버거 스폰 (최대 3명):
    Task(team_name="debug-team", name="debugger-N"):
-     "당신은 디버거입니다. 가설 N을 조사하세요: [가설 설명].
+     "당신은 디버거입니다.
+      가설 N을 조사하세요: [가설 설명].
       조사 방법: 관련 코드를 읽고, 로그를 분석하고, 테스트를 실행하세요.
       다른 디버거의 가설에 대한 반증을 찾으면 SendMessage로 공유하세요.
       조사 완료 후 TaskUpdate로 결과(확증/반증)를 보고하세요."
@@ -85,8 +86,8 @@ DO: Skill("fix", "$ARGUMENTS")
 REVIEW: Task(reviewer): "/fix가 수정한 코드를 리뷰하라. 수정이 적절한가? 원인: [/fix가 보고한 근본 원인]"
 ```
 
-- PASS/WARN → Phase 3로 진행
-- BLOCK → 수정 후 재리뷰 (최대 2회)
+- PASS/WARN -> Phase 3로 진행
+- BLOCK -> 수정 후 재리뷰 (최대 2회)
 
 ### Phase 3: 검증
 
@@ -97,8 +98,8 @@ REVIEW: Task(reviewer): "/fix가 수정한 코드를 리뷰하라. 수정이 적
 DO: Skill("test", "--regression")
 ```
 
-- 전체 통과 → 완료
-- 실패 있음 → 자동 수정 시도:
+- 전체 통과 -> 완료
+- 실패 있음 -> 자동 수정 시도:
   ```
   DO: Skill("fix", "<새로 실패한 테스트 에러>")
   DO: Skill("test", "--regression")

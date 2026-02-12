@@ -28,24 +28,74 @@
 
 ## Git Worktree 규칙
 
-개발 작업은 반드시 `git worktree`를 사용한다.
+코드를 수정하는 모든 워크플로우 스킬은 git worktree 내에서 실행된다.
 
 - 멀티 세션이 같은 working directory를 공유하면 파일 충돌이 발생한다
 - 에이전트팀 병렬 개발 시 팀원들이 같은 파일을 동시에 수정하면 덮어쓰기가 발생한다
 - worktree로 세션/팀원별 독립 작업 디렉토리를 확보하여 충돌을 원천 차단한다
 
-```bash
-# 피처 브랜치용 worktree 생성
-git worktree add ../project-feature-x feature-x
+### 적용 대상
+- `/implement`, `/bugfix`, `/hotfix`, `/improve` -- 작업 시작 전 worktree 생성, 완료 후 정리
+- `/new-project` -- 기존 repo면 worktree 생성, 새 repo면 별도 디렉토리에서 git init
+- 에이전트팀 병렬 개발 시 리드가 팀원별 worktree를 생성 (parallel-dev.md 참조)
+- 동일 프로젝트에서 Claude Code 세션을 여러 개 띄울 때
 
-# 작업 완료 후 정리
-git worktree remove ../project-feature-x
+### Worktree 생성
+
+```bash
+PROJECT_ROOT=$(git -C "$PWD" rev-parse --show-toplevel)
+PROJECT_NAME=$(basename "$PROJECT_ROOT")
+BRANCH_NAME="{type}/{feature-name}"           # feat/auth, fix/login-error, hotfix/xss
+WORKTREE_DIR="$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-{type}-{feature-name}"
+git -C "$PROJECT_ROOT" worktree add "$WORKTREE_DIR" -b "$BRANCH_NAME"
 ```
 
-적용 대상:
-- `/implement`, `/bugfix`, `/hotfix`, `/improve` 등 코드를 수정하는 워크플로우
-- `/new-project`의 에이전트팀 병렬 개발 Phase
-- 동일 프로젝트에서 Claude Code 세션을 여러 개 띄울 때
+새 worktree에는 `node_modules`, `venv` 등이 없으므로 의존성을 설치한다:
+```bash
+# 프로젝트 유형에 따라 해당 명령 실행
+cd "$WORKTREE_DIR" && npm install          # package.json
+cd "$WORKTREE_DIR" && pip install -r requirements.txt  # requirements.txt
+cd "$WORKTREE_DIR" && cargo build          # Cargo.toml
+cd "$WORKTREE_DIR" && go mod download      # go.mod
+```
+
+### 절대 경로 원칙
+
+서브에이전트의 Bash cwd는 호출 간에 리셋되므로, 항상 절대 경로를 사용한다:
+- 파일 조작: `$WORKTREE_DIR/path/to/file` 절대 경로로 Read/Write/Edit
+- Bash 명령: `cd "$WORKTREE_DIR" && command` 또는 절대 경로 사용
+- 스킬/에이전트 호출: worktree 경로를 인자에 포함 (예: `Skill("test", "... (worktree: $WORKTREE_DIR)")`)
+- 팀원 스폰: worktree 절대 경로를 프롬프트에 명시
+- Git 명령은 worktree 내에서 자동으로 해당 브랜치를 대상으로 동작하므로 특별한 처리 불필요
+
+### Worktree 정리
+
+작업 완료 후:
+1. 미커밋 변경이 있으면 커밋한다
+2. 사용자에게 브랜치 병합을 안내한다 (`git merge $BRANCH_NAME` 또는 PR)
+3. worktree를 제거한다: `git -C "$PROJECT_ROOT" worktree remove "$WORKTREE_DIR"`
+
+에러가 발생해도 worktree 정리를 시도한다 (고아 방지).
+
+### 팀원별 Worktree
+
+에이전트팀 병렬 개발 시 리드가 팀원별 worktree를 사전 생성한다:
+```bash
+git -C "$PROJECT_ROOT" worktree add \
+  "$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-dev-N" -b "feat/{task-N-name}"
+```
+- 각 팀원에게 worktree 절대 경로를 프롬프트로 전달
+- 팀원은 할당된 worktree 내에서만 작업
+- 완료 후 리드가 모든 팀원 worktree를 정리
+
+### 고아 worktree 정리
+
+비정상 종료로 worktree가 남을 수 있다:
+```bash
+git worktree prune          # 사라진 경로의 worktree 참조 정리
+git worktree list           # 현재 worktree 목록 확인
+git worktree remove <path>  # 특정 worktree 제거
+```
 
 ## 스킬 실행 모델
 

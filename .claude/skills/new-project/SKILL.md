@@ -35,8 +35,8 @@ DO: Skill("blueprint", "$ARGUMENTS")
 REVIEW: Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하라. 구조가 적합한가?"
 ```
 
-- PASS/WARN → Phase 2로 진행
-- BLOCK → /blueprint 산출물 수정 후 재리뷰
+- PASS/WARN -> Phase 2로 진행
+- BLOCK -> /blueprint 산출물 수정 후 재리뷰
 
 ### Phase 2: 기술조사 (필요시)
 
@@ -47,8 +47,8 @@ DO: Skill("deepresearch", "<조사 주제>")
 REVIEW: Task(architect): "조사 결과를 바탕으로, 이 기술 선택이 아키텍처에 적합한가?"
 ```
 
-- PASS/WARN → Phase 3로 진행
-- BLOCK → 대안 기술 조사 후 재리뷰
+- PASS/WARN -> Phase 3로 진행
+- BLOCK -> 대안 기술 조사 후 재리뷰
 
 ### Phase 3: 개발
 
@@ -62,7 +62,7 @@ REVIEW: Task(architect): "조사 결과를 바탕으로, 이 기술 선택이 �
 
 #### 3b: 순차 개발 (독립 태스크 2개 이하인 경우)
 
-기존 방식으로 태스크를 순서대로 구현한다:
+태스크를 순서대로 구현한다:
 
 ```
 tasks.md의 각 태스크에 대해:
@@ -81,8 +81,8 @@ REVIEW: Task(reviewer): "구현된 코드의 품질을 리뷰하라"
 REVIEW: Task(security): "보안 관점에서 리뷰하라"
 ```
 
-- PASS/WARN → 다음 태스크(3b) 또는 Phase 4(3a)로 진행
-- BLOCK → 해당 태스크 수정 후 재리뷰
+- PASS/WARN -> 다음 태스크(3b) 또는 Phase 4(3a)로 진행
+- BLOCK -> 해당 태스크 수정 후 재리뷰
 
 ### Phase 4: QA
 
@@ -93,8 +93,8 @@ REVIEW: Task(security): "보안 관점에서 리뷰하라"
 DO: Skill("test", "<전체 또는 변경된 모듈>")
 ```
 
-- 전체 통과 → Phase 5로 진행
-- 실패 있음 → 자동으로 수정 시도:
+- 전체 통과 -> Phase 5로 진행
+- 실패 있음 -> 자동으로 수정 시도:
   ```
   DO: Skill("fix", "<실패한 테스트 에러 메시지>")
   DO: Skill("test", "--regression")
@@ -115,7 +115,7 @@ REVIEW: Task(security): "배포 설정이 안전한가?"
 ## 종료 조건
 
 다음 중 하나를 만족하면 워크플로우가 완료된다:
-1. 모든 Phase가 성공적으로 완료
+1. 모든 Phase가 성공적으로 완료 (Phase 1 ~ Phase 5)
 2. 배포 없이 QA까지 통과 (배포 미요청 시)
 3. 사용자가 중단을 요청
 
