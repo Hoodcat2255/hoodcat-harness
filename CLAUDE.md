@@ -34,6 +34,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 프로젝트의 테스트 스위트가 다양할 때 사용
 - 비용: 단일 테스트 대비 최대 4배 토큰
 
+### scaffold
+기존 패턴을 런타임에 참조하여 새 스킬/에이전트 파일을 자동 생성합니다.
+- 호출: `/scaffold <type> <name> [options] -- <description>`
+- 지원 유형: worker, workflow, agent, pair (에이전트+스킬 쌍)
+- 기존 파일을 매번 Read하여 최신 패턴 반영
+
 ## hoodcat-harness 공통 지침
 
 @.claude/harness.md
