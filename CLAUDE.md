@@ -56,6 +56,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **architect**: 아키텍처 리뷰. 구조 적합성, 확장성 평가.
 - **navigator**: 코드베이스 탐색. 파일 매핑, 영향 범위 파악.
 
+## Git Worktree 규칙
+
+개발 작업은 반드시 `git worktree`를 사용한다.
+
+- 멀티 세션이 같은 working directory를 공유하면 파일 충돌이 발생한다
+- 에이전트팀 병렬 개발 시 팀원들이 같은 파일을 동시에 수정하면 덮어쓰기가 발생한다
+- worktree로 세션/팀원별 독립 작업 디렉토리를 확보하여 충돌을 원천 차단한다
+
+```bash
+# 피처 브랜치용 worktree 생성
+git worktree add ../project-feature-x feature-x
+
+# 작업 완료 후 정리
+git worktree remove ../project-feature-x
+```
+
+적용 대상:
+- `/implement`, `/bugfix`, `/hotfix`, `/improve` 등 코드를 수정하는 워크플로우
+- `/new-project`의 에이전트팀 병렬 개발 Phase
+- 동일 프로젝트에서 Claude Code 세션을 여러 개 띄울 때
+
 ## 스킬 실행 모델
 
 모든 스킬은 `context: fork`로 서브에이전트에서 실행된다.
