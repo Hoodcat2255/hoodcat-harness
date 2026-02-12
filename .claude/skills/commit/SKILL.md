@@ -95,4 +95,4 @@ pre-commit hook이 실패하면:
 
 ## REVIEW 연동
 
-commit은 리뷰 없이 자동 완료한다. 코드 품질 리뷰는 /implement나 /fix 단계에서 이미 수행된다.
+commit은 리뷰 없이 자동 완료한다. 코드 품질 리뷰는 Planner가 /code 이후 Task(reviewer)로 수행한다.

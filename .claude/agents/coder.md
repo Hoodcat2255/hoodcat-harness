@@ -3,7 +3,7 @@ name: coder
 description: |
   Coding worker agent for file manipulation, building, testing, and security auditing.
   Handles code reading/writing, build commands, test execution, and dependency audits.
-  Used by fix, test, deploy, and security-scan skills.
+  Used by code, test, deploy, security-scan, scaffold, team-review, and qa-swarm skills.
   NOT called directly by users - used as the agent type for coding worker skills.
 tools:
   - Read

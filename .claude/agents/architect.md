@@ -92,7 +92,7 @@ When you receive input from other agents or skills:
 - **From /deepresearch**: Assess whether the researched technology fits the system's architecture
 
 Your output will be consumed by:
-- **Workflow orchestrators** (/new-project, /improve): They use your verdict to PROCEED or REDO
+- **Planner**: Uses your verdict to PROCEED or REDO the current plan step
 - **Human**: They read your findings to make final decisions
 
 ## Output Requirements

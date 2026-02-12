@@ -3,6 +3,7 @@
   "max_summary_chars": 4000,
   "max_transcript_lines": 500,
   "filters": {
+    "planner": ["navigation", "code_changes"],
     "reviewer": ["navigation", "code_changes"],
     "security": ["navigation", "code_changes"],
     "architect": ["navigation", "code_changes"],

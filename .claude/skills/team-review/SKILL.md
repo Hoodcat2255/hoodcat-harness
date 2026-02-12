@@ -9,7 +9,7 @@ description: |
 argument-hint: "<리뷰 대상 파일 또는 변경 설명>"
 user-invocable: true
 context: fork
-agent: workflow
+agent: coder
 ---
 
 # Team Review Skill (Multi-Lens Review)

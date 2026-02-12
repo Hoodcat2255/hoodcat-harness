@@ -2,43 +2,78 @@
 
 이 문서는 hoodcat-harness 멀티에이전트 시스템이 설치된 모든 프로젝트에 적용되는 공통 지침이다.
 
-## 스킬 아키텍처
+## 스킬 아키텍처 (2-tier, Planner-Driven)
 
-모든 스킬은 `context: fork`로 서브에이전트에서 격리 실행된다.
-메인 에이전트는 순수한 오케스트레이터로, 사용자 의도를 파악하여 적절한 스킬을 디스패치한다.
+```
+Tier 1: Main Agent (순수 디스패처)
+  ├─ 단순 요청 → 워커 스킬 직접 호출
+  └─ 복합 요청 → Planner에게 위임: Task(planner, "$USER_REQUEST")
 
-### 워크플로우 스킬
-서브에이전트에서 다중 Phase를 자율 실행하며, 워커 스킬과 에이전트를 조율한다.
-`agent: workflow` 사용.
-- bugfix, hotfix, implement, improve, new-project
+Tier 2: Planner + 워커 스킬 + 리뷰 에이전트
+```
 
-### 워커 스킬
-단일 책임의 독립 작업을 수행한다.
-- fix, test, blueprint, commit, deploy, security-scan, deepresearch, decide, team-review, qa-swarm
+### Main Agent의 역할
+
+Main Agent는 코드를 쓰지 않고, 테스트를 실행하지 않는다.
+사용자 의도를 파악하여 적절한 스킬 또는 Planner에게 위임한다.
+
+#### 디스패치 기준
+
+- **명시적 단일 스킬 호출** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
+- **복합 요청** (구현, 버그 수정, 개선, 프로젝트 생성, 긴급 수정 등) → `Task(planner, "$USER_REQUEST")`로 Planner에 위임
+
+### Planner
+
+Planner는 `.claude/agents/planner.md`로 정의된 에이전트다.
+Main Agent가 `Task(planner, ...)`로 호출하면 fork 컨텍스트에서 자율 실행한다.
+
+Planner의 역할:
+1. **분석**: 요구의 성격 파악 (버그? 기능? 리서치? 배포?)
+2. **계획**: 스킬 카탈로그에서 스킬을 선택하고 실행 순서를 동적으로 결정
+3. **이행**: Skill()과 Task()를 순차/병렬 호출하여 계획 실행
+4. **판단**: 각 단계 결과를 평가하고 다음 행동 결정 (적응적 실행)
+5. **보고**: 최종 결과를 Main Agent에 반환
+
+Planner는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나, 추가하거나, 순서를 바꾸거나, 동적으로 반복한다.
+
+### 워커 스킬 (11개)
+
+모든 스킬은 `context: fork`로 격리 실행. 스킬 안에서 다른 스킬을 호출하지 않는다.
+
+| 스킬 | Agent | 용도 |
+|------|-------|------|
+| `code` | coder | 코드 작성·수정·진단·패치 |
+| `test` | coder | 테스트 작성·실행 |
+| `blueprint` | researcher | 설계 문서 생성 |
+| `commit` | committer | Git 커밋 |
+| `deploy` | coder | 배포 설정 |
+| `security-scan` | coder | 보안 스캔 |
+| `deepresearch` | researcher | 심층 자료조사 |
+| `decide` | researcher | 비교 분석·의사결정 |
+| `scaffold` | coder | 스킬/에이전트 생성 |
+| `team-review` | coder | 멀티렌즈 리뷰 (에이전트팀) |
+| `qa-swarm` | coder | 병렬 QA (에이전트팀) |
 
 ### 에이전트 (8개)
-- **workflow**: 워크플로우 + 팀 오케스트레이션. Skill/Task/팀 도구.
-- **researcher**: 리서치/기획 워커. WebSearch/Context7/문서 작성.
-- **coder**: 코딩 워커. 파일 읽기/쓰기 + 빌드/테스트/감사 명령.
-- **committer**: Git 워커. 읽기 전용 + git 명령만. sonnet.
-- **reviewer**: 코드 품질 리뷰. 유지보수성, 패턴 일관성 평가.
-- **security**: 보안 리뷰. OWASP Top 10, 인증/인가 평가.
-- **architect**: 아키텍처 리뷰. 구조 적합성, 확장성 평가.
-- **navigator**: 코드베이스 탐색. 파일 매핑, 영향 범위 파악.
+
+| 에이전트 | 역할 | 호출 방식 |
+|---------|------|----------|
+| **planner** | 동적 계획 + 이행 | Main Agent가 Task()로 호출 |
+| **coder** | 코딩, 빌드/테스트 | 스킬의 agent로 지정 |
+| **committer** | Git 커밋 (최소 권한, sonnet) | commit 스킬의 agent |
+| **researcher** | 웹 검색, 문서 작성 | 리서치 스킬의 agent |
+| **reviewer** | 코드 품질 리뷰 | Planner가 Task()로 호출 |
+| **security** | 보안 리뷰 | Planner가 Task()로 호출 |
+| **architect** | 아키텍처 리뷰 | Planner가 Task()로 호출 |
+| **navigator** | 코드베이스 탐색 | Planner가 Task()로 호출 |
 
 ## Git Worktree 규칙
 
-코드를 수정하는 모든 워크플로우 스킬은 git worktree 내에서 실행된다.
+코드를 수정하는 계획을 이행할 때 Planner가 git worktree를 생성하고 관리한다.
 
 - 멀티 세션이 같은 working directory를 공유하면 파일 충돌이 발생한다
 - 에이전트팀 병렬 개발 시 팀원들이 같은 파일을 동시에 수정하면 덮어쓰기가 발생한다
 - worktree로 세션/팀원별 독립 작업 디렉토리를 확보하여 충돌을 원천 차단한다
-
-### 적용 대상
-- `/implement`, `/bugfix`, `/hotfix`, `/improve` -- 작업 시작 전 worktree 생성, 완료 후 정리
-- `/new-project` -- 기존 repo면 worktree 생성, 새 repo면 별도 디렉토리에서 git init
-- 에이전트팀 병렬 개발 시 리드가 팀원별 worktree를 생성 (parallel-dev.md 참조)
-- 동일 프로젝트에서 Claude Code 세션을 여러 개 띄울 때
 
 ### Worktree 생성
 
@@ -52,7 +87,6 @@ git -C "$PROJECT_ROOT" worktree add "$WORKTREE_DIR" -b "$BRANCH_NAME"
 
 새 worktree에는 `node_modules`, `venv` 등이 없으므로 의존성을 설치한다:
 ```bash
-# 프로젝트 유형에 따라 해당 명령 실행
 cd "$WORKTREE_DIR" && npm install          # package.json
 cd "$WORKTREE_DIR" && pip install -r requirements.txt  # requirements.txt
 cd "$WORKTREE_DIR" && cargo build          # Cargo.toml
@@ -64,9 +98,8 @@ cd "$WORKTREE_DIR" && go mod download      # go.mod
 서브에이전트의 Bash cwd는 호출 간에 리셋되므로, 항상 절대 경로를 사용한다:
 - 파일 조작: `$WORKTREE_DIR/path/to/file` 절대 경로로 Read/Write/Edit
 - Bash 명령: `cd "$WORKTREE_DIR" && command` 또는 절대 경로 사용
-- 스킬/에이전트 호출: worktree 경로를 인자에 포함 (예: `Skill("test", "... (worktree: $WORKTREE_DIR)")`)
+- 스킬 호출: worktree 경로를 인자에 포함 (예: `Skill("code", "... (worktree: $WORKTREE_DIR)")`)
 - 팀원 스폰: worktree 절대 경로를 프롬프트에 명시
-- Git 명령은 worktree 내에서 자동으로 해당 브랜치를 대상으로 동작하므로 특별한 처리 불필요
 
 ### Worktree 정리
 
@@ -79,60 +112,48 @@ cd "$WORKTREE_DIR" && go mod download      # go.mod
 
 ### 팀원별 Worktree
 
-에이전트팀 병렬 개발 시 리드가 팀원별 worktree를 사전 생성한다:
+에이전트팀 병렬 개발 시 Planner가 팀원별 worktree를 사전 생성한다:
 ```bash
 git -C "$PROJECT_ROOT" worktree add \
   "$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-dev-N" -b "feat/{task-N-name}"
 ```
-- 각 팀원에게 worktree 절대 경로를 프롬프트로 전달
-- 팀원은 할당된 worktree 내에서만 작업
-- 완료 후 리드가 모든 팀원 worktree를 정리
 
 ### 고아 worktree 정리
 
-비정상 종료로 worktree가 남을 수 있다:
 ```bash
 git worktree prune          # 사라진 경로의 worktree 참조 정리
 git worktree list           # 현재 worktree 목록 확인
 git worktree remove <path>  # 특정 worktree 제거
 ```
 
-## 스킬 실행 모델
+## 검증 규칙
 
-모든 스킬은 `context: fork`로 서브에이전트에서 실행된다.
-서브에이전트는 자체 컨텍스트에서 완료까지 자율 실행되므로, 별도의 강제속행 메커니즘이 불필요하다.
-
-### 검증 규칙
 - 빌드/테스트 결과는 **실제 명령어의 exit code**로만 판단한다
 - 텍스트 보고("통과했습니다")를 신뢰하지 않는다
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
-### 품질 게이트 훅
-- `.claude/hooks/task-quality-gate.sh` (TaskCompleted): 구현 태스크 완료 시 빌드/테스트 자동 검증. exit 2로 완료 차단 가능.
-- `.claude/hooks/teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도.
+## 품질 게이트 훅
 
-### 공유 컨텍스트 시스템
+- `.claude/hooks/task-quality-gate.sh` (TaskCompleted): 구현 태스크 완료 시 빌드/테스트 자동 검증
+- `.claude/hooks/teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도
 
-서브에이전트 간 작업 결과를 공유하는 파일 기반 시스템. 중복 탐색을 줄이고 후속 에이전트에 이전 작업 결과를 자동 전달한다.
+## 공유 컨텍스트 시스템
+
+서브에이전트 간 작업 결과를 공유하는 파일 기반 시스템.
 
 **동작 원리:**
 1. **SubagentStart** (`shared-context-inject.sh`): 이전 에이전트의 작업 요약을 `additionalContext`로 주입
-2. **에이전트 자발적 기록**: 에이전트가 작업 결과를 `.claude/shared-context/{session-id}/{agent-type}-{agent-id}.md`에 직접 기록
-3. **SubagentStop** (`shared-context-collect.sh`): 자발적 기록이 없으면 transcript에서 자동 추출, `_summary.md` 업데이트
+2. **에이전트 자발적 기록**: 작업 결과를 `.claude/shared-context/{session-id}/{agent-type}-{agent-id}.md`에 기록
+3. **SubagentStop** (`shared-context-collect.sh`): 자발적 기록이 없으면 transcript에서 자동 추출
 4. **SessionStart** (`shared-context-cleanup.sh`): TTL 만료 세션 정리
 5. **SessionEnd** (`shared-context-finalize.sh`): 세션 메트릭 기록
 
 **설정:** `.claude/shared-context-config.json`
-- `ttl_hours`: 세션 데이터 유지 시간 (기본 24시간)
-- `max_summary_chars`: 주입할 컨텍스트 최대 크기 (기본 4000자)
-- `filters`: 에이전트 타입별 컨텍스트 필터링 규칙
 
-**검증:** `bash .claude/hooks/test-shared-context.sh`로 통합 테스트 실행 가능.
+## 에이전트팀 활용 기준
 
-### 에이전트팀 활용 기준
-- **/new-project Phase 3**: 독립 태스크 3개 이상이면 에이전트팀 병렬 개발, 2개 이하면 순차 개발
-- **/bugfix**: 복잡 버그 감지 시 경쟁 가설 디버깅 (에이전트팀), 단순 버그는 기존 /fix
-- **/team-review**: 대규모/고위험 변경에만 사용, 단순 변경은 서브에이전트 리뷰
+- 독립 태스크 3개 이상이면 에이전트팀 병렬 개발, 2개 이하면 순차 개발
+- **/team-review**: 대규모/고위험 변경에만 사용, 단순 변경은 Task(reviewer)
 - **/qa-swarm**: 테스트 스위트가 다양한 프로젝트에만 사용, 소규모는 /test
 
 ## 에이전트 & 스킬 Best Practices / Anti-Patterns

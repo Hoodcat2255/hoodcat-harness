@@ -3,7 +3,7 @@ name: security
 description: |
   Security reviewer for vulnerabilities, OWASP Top 10, and auth concerns.
   Called when: auth/authorization code changes, handling user input or external data,
-  before deployment (/deploy), during /hotfix workflows, or when /security-scan
+  before deployment (/deploy), during hotfix plans, or when /security-scan
   finds issues that need expert evaluation.
   NOT called for: code style, architecture decisions, or non-security bugs.
 tools:
@@ -103,13 +103,12 @@ Bash is **strictly limited** to security scanning commands:
 ## Handoff Context
 
 When you receive input from other agents or skills:
-- **From /implement**: Focus on newly introduced attack surfaces
-- **From /fix**: Verify the patch doesn't introduce new vulnerabilities
+- **From Planner (via /code)**: Focus on newly introduced attack surfaces, verify patches don't introduce vulnerabilities
 - **From /security-scan**: Evaluate scan results and prioritize by severity
 - **From navigator**: Use the navigation report to identify auth/data boundaries
 
 Your output will be consumed by:
-- **Workflow orchestrators** (/hotfix, /new-project): They use your verdict to PROCEED or BLOCK
+- **Planner**: Uses your verdict to PROCEED or BLOCK the current plan step
 - **Human**: They read your severity assessments to prioritize fixes
 
 ## Output Requirements

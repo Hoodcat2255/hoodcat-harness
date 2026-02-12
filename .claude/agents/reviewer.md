@@ -2,7 +2,7 @@
 name: reviewer
 description: |
   Code quality reviewer for maintainability and pattern adherence.
-  Called when: /implement produces new code, /fix patches a bug,
+  Called when: Planner produces new code via /code, patches a bug,
   or any code changes need quality verification before merging.
   NOT called for: architecture decisions, security audits, or codebase exploration.
 tools:
@@ -93,12 +93,11 @@ additionalContext에 기록 경로가 포함되어 있다.
 ## Handoff Context
 
 When you receive input from other agents or skills:
-- **From /implement**: Review the newly written code against project conventions
-- **From /fix**: Verify the patch is clean and includes regression tests
+- **From Planner (via /code)**: Review the newly written code against project conventions
 - **From navigator**: Use the navigation report to understand the broader context of changes
 
 Your output will be consumed by:
-- **Workflow orchestrators** (/improve, /bugfix): They use your verdict to PROCEED or REDO
+- **Planner**: Uses your verdict to PROCEED or REDO the current plan step
 - **Human**: They read your findings to decide on code quality
 
 ## Output Requirements

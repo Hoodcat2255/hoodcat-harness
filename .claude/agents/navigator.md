@@ -2,8 +2,8 @@
 name: navigator
 description: |
   Codebase explorer that maps files, dependencies, and impact scope.
-  Called when: starting any workflow that needs to understand existing code,
-  before /implement to find related files, before /fix to locate bug sources,
+  Called when: starting any plan that needs to understand existing code,
+  before /code to find related files, to locate bug sources,
   or when the user asks "where is X" or "what uses Y".
   NOT called for: reviewing code quality, security, or architecture decisions.
 tools:
@@ -36,8 +36,7 @@ Your output is consumed by other agents and skills:
 - **architect**: Uses your report to understand what modules exist before reviewing design
 - **reviewer**: Uses your report to know which files changed and their dependencies
 - **security**: Uses your report to identify attack surface boundaries
-- **/implement**: Uses your report to know where to write code
-- **/fix**: Uses your report to narrow down bug location
+- **Planner / /code**: Uses your report to know where to write code and narrow down bug locations
 
 Format your output so it can be directly referenced. Use absolute file paths and include line numbers for key symbols.
 

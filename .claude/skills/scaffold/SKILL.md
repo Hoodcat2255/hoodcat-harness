@@ -28,7 +28,6 @@ $ARGUMENTS: 생성할 유형과 이름, 옵션, 설명.
 | type | 생성물 | 필수 인자 |
 |------|--------|----------|
 | `worker` | 워커 스킬 SKILL.md | name, agent, description |
-| `workflow` | 워크플로우 스킬 SKILL.md | name, description |
 | `agent` | 에이전트 .md | name, tools, description |
 | `pair` | 에이전트 + 스킬 쌍 | name, tools, description |
 
@@ -43,7 +42,6 @@ $ARGUMENTS: 생성할 유형과 이름, 옵션, 설명.
 
 ```
 worker lint-check agent:coder -- 프로젝트 린터 실행
-workflow deploy-pipeline -- CI/CD 파이프라인 실행 워크플로우
 agent analyzer tools:[Read,Glob,Grep] -- 코드 분석 전문 에이전트
 pair formatter tools:[Read,Write,Edit,Bash(npx *)] -- 코드 포맷팅 스킬과 에이전트
 ```
@@ -60,7 +58,6 @@ $ARGUMENTS에서 type, name, agent, tools, model, description을 추출한다.
 - name이 기존 스킬/에이전트와 중복되지 않는지 확인 (Glob으로 `.claude/skills/*/SKILL.md`와 `.claude/agents/*.md` 검색)
 - worker/pair일 때 agent가 `.claude/agents/`에 존재하는지 확인
 - agent/pair일 때 tools가 지정되었는지 확인
-- workflow일 때 agent는 자동으로 `workflow`로 설정
 
 중복이나 누락이 있으면 사용자에게 보고하고 중단한다.
 
@@ -70,8 +67,7 @@ $ARGUMENTS에서 type, name, agent, tools, model, description을 추출한다.
 
 | 유형 | 참조 파일 |
 |------|----------|
-| worker | `.claude/skills/fix/SKILL.md` + `.claude/skills/test/SKILL.md` |
-| workflow | `.claude/skills/implement/SKILL.md` |
+| worker | `.claude/skills/code/SKILL.md` + `.claude/skills/test/SKILL.md` |
 | agent | `.claude/agents/coder.md` + `.claude/agents/reviewer.md` |
 | pair | worker 참조 + agent 참조 모두 |
 
@@ -134,47 +130,6 @@ $ARGUMENTS: {입력 설명}
 ## REVIEW 연동
 
 {리뷰 방식 설명 - 내부 스킬이면 "호출 워크플로우가 담당", 독립 스킬이면 자체 리뷰 로직}
-```
-
-#### 워크플로우 스킬 본문 구조
-
-```markdown
-# {Name} Skill
-
-## 입력
-
-$ARGUMENTS: {입력 설명}
-
-## DO/REVIEW 시퀀스
-
-$ARGUMENTS를 기반으로 다음 단계를 순차 실행한다.
-각 단계에서 BLOCK이 반환되면 수정 후 재리뷰한다. 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단을 요청한다.
-
-### Phase 1: {첫 번째 페이즈}
-{DO/REVIEW 패턴}
-
-### Phase 2: {두 번째 페이즈}
-{DO/REVIEW 패턴}
-
-...
-
-## 종료 조건
-
-다음 중 하나를 만족하면 워크플로우가 완료된다:
-1. {조건 1}
-2. {조건 2}
-
-## 완료 보고
-
-```markdown
-## {완료 보고 제목}
-
-### 실행된 단계
-- [x] {단계}: {요약}
-
-### 변경된 파일
-- `path/to/file` - [변경 내용]
-```
 ```
 
 ### 4. 에이전트 파일 생성 (agent/pair)
