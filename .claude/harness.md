@@ -61,6 +61,24 @@ git worktree remove ../project-feature-x
 - `.claude/hooks/task-quality-gate.sh` (TaskCompleted): 구현 태스크 완료 시 빌드/테스트 자동 검증. exit 2로 완료 차단 가능.
 - `.claude/hooks/teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도.
 
+### 공유 컨텍스트 시스템
+
+서브에이전트 간 작업 결과를 공유하는 파일 기반 시스템. 중복 탐색을 줄이고 후속 에이전트에 이전 작업 결과를 자동 전달한다.
+
+**동작 원리:**
+1. **SubagentStart** (`shared-context-inject.sh`): 이전 에이전트의 작업 요약을 `additionalContext`로 주입
+2. **에이전트 자발적 기록**: 에이전트가 작업 결과를 `.claude/shared-context/{session-id}/{agent-type}-{agent-id}.md`에 직접 기록
+3. **SubagentStop** (`shared-context-collect.sh`): 자발적 기록이 없으면 transcript에서 자동 추출, `_summary.md` 업데이트
+4. **SessionStart** (`shared-context-cleanup.sh`): TTL 만료 세션 정리
+5. **SessionEnd** (`shared-context-finalize.sh`): 세션 메트릭 기록
+
+**설정:** `.claude/shared-context-config.json`
+- `ttl_hours`: 세션 데이터 유지 시간 (기본 24시간)
+- `max_summary_chars`: 주입할 컨텍스트 최대 크기 (기본 4000자)
+- `filters`: 에이전트 타입별 컨텍스트 필터링 규칙
+
+**검증:** `bash .claude/hooks/test-shared-context.sh`로 통합 테스트 실행 가능.
+
 ### 에이전트팀 활용 기준
 - **/new-project Phase 3**: 독립 태스크 3개 이상이면 에이전트팀 병렬 개발, 2개 이하면 순차 개발
 - **/bugfix**: 복잡 버그 감지 시 경쟁 가설 디버깅 (에이전트팀), 단순 버그는 기존 /fix

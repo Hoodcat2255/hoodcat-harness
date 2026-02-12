@@ -26,6 +26,7 @@ readonly GITIGNORE_ENTRIES=(
     "# hoodcat-harness runtime"
     ".claude/agent-memory-local/"
     ".claude/log/"
+    ".claude/shared-context/"
     ".claude/.harness-meta.json"
 )
 
@@ -372,6 +373,7 @@ clean_target_gitignore() {
                     # 빈 줄이거나 harness 관련 항목이면 스킵
                     if [[ "$line" == ".claude/agent-memory-local/" ]] || \
                        [[ "$line" == ".claude/log/" ]] || \
+                       [[ "$line" == ".claude/shared-context/" ]] || \
                        [[ "$line" == ".claude/.harness-meta.json" ]] || \
                        [[ -z "$line" ]]; then
                         continue

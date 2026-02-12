@@ -32,6 +32,24 @@ Your job is to analyze code changes and create well-structured git commits.
   report the issue rather than fixing code.
 - **No build/test commands**: You only handle git operations.
 
+## Shared Context Protocol
+
+이전 에이전트의 작업 결과가 additionalContext로 주입되면, 이를 참고하여 중복 작업을 줄인다.
+
+작업 완료 시, 핵심 발견 사항을 지정된 공유 컨텍스트 파일에 기록한다.
+additionalContext에 기록 경로가 포함되어 있다.
+
+기록 형식:
+```markdown
+## Committer Report
+### Commits Created
+- [커밋 해시 + 메시지]
+### Files Committed
+- [커밋된 파일 목록]
+### Notes
+- [pre-commit 실패, 주의 사항 등]
+```
+
 ## Memory Management
 
 **작업 시작 전**: MEMORY.md와 주제별 파일을 읽고, 이전 작업 이력과 축적된 지식을 참고한다.

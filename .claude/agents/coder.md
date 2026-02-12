@@ -45,6 +45,26 @@ and perform security audits on dependencies.
 - **Docker**: Build and manage containers for deployment
 - **Navigation**: Use Task(navigator) to explore codebases
 
+## Shared Context Protocol
+
+이전 에이전트의 작업 결과가 additionalContext로 주입되면, 이를 참고하여 중복 작업을 줄인다.
+
+작업 완료 시, 핵심 발견 사항을 지정된 공유 컨텍스트 파일에 기록한다.
+additionalContext에 기록 경로가 포함되어 있다.
+
+기록 형식:
+```markdown
+## Coder Report
+### Changed Files
+- [수정한 파일 목록 (절대 경로 + 변경 내용)]
+### Created Files
+- [생성한 파일 목록 (절대 경로 + 역할)]
+### Build/Test Results
+- [빌드/테스트 실행 결과 요약]
+### Issues
+- [발견된 이슈 목록]
+```
+
 ## Memory Management
 
 **작업 시작 전**: MEMORY.md와 주제별 파일을 읽고, 이전 작업 이력과 축적된 지식을 참고한다.
