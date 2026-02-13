@@ -24,7 +24,6 @@ readonly TEMPLATE_DIRS=(agents skills rules hooks)
 # .gitignore에 추가할 항목
 readonly GITIGNORE_ENTRIES=(
     "# hoodcat-harness runtime"
-    ".claude/agent-memory-local/"
     ".claude/log/"
     ".claude/shared-context/"
     ".claude/.harness-meta.json"
@@ -121,7 +120,6 @@ copy_template_files() {
 init_runtime_dirs() {
     local target="$1"
     if dry_run_guard "런타임 디렉토리 생성"; then
-        mkdir -p "${target}/.claude/agent-memory-local"
         mkdir -p "${target}/.claude/log"
         log_debug "런타임 디렉토리 생성 완료"
     fi
@@ -371,8 +369,7 @@ clean_target_gitignore() {
                 fi
                 if $in_block; then
                     # 빈 줄이거나 harness 관련 항목이면 스킵
-                    if [[ "$line" == ".claude/agent-memory-local/" ]] || \
-                       [[ "$line" == ".claude/log/" ]] || \
+                    if [[ "$line" == ".claude/log/" ]] || \
                        [[ "$line" == ".claude/shared-context/" ]] || \
                        [[ "$line" == ".claude/.harness-meta.json" ]] || \
                        [[ -z "$line" ]]; then
@@ -642,10 +639,6 @@ cmd_delete() {
 
     # 런타임 데이터 경고
     local has_runtime=false
-    if [[ -d "${target}/.claude/agent-memory-local" ]] && [[ -n "$(ls -A "${target}/.claude/agent-memory-local" 2>/dev/null)" ]]; then
-        log_warn "에이전트 메모리 데이터가 존재합니다: .claude/agent-memory-local/"
-        has_runtime=true
-    fi
     if [[ -d "${target}/.claude/log" ]] && [[ -n "$(ls -A "${target}/.claude/log" 2>/dev/null)" ]]; then
         log_warn "로그 데이터가 존재합니다: .claude/log/"
         has_runtime=true
@@ -728,11 +721,6 @@ cmd_status() {
     # 런타임 상태
     echo ""
     echo "런타임:"
-    if [[ -d "${target}/.claude/agent-memory-local" ]]; then
-        local mem_count
-        mem_count="$(find "${target}/.claude/agent-memory-local" -type f 2>/dev/null | wc -l)"
-        echo "  agent-memory: ${mem_count}개 파일"
-    fi
     if [[ -d "${target}/.claude/log" ]]; then
         local log_count
         log_count="$(find "${target}/.claude/log" -type f 2>/dev/null | wc -l)"
