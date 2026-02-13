@@ -306,6 +306,41 @@ EOF
     fi
 }
 
+migrate_gitignore() {
+    local target="$1"
+    local gitignore="${target}/.gitignore"
+
+    [[ -f "$gitignore" ]] || return 0
+
+    # 레거시 항목이 있는지 확인
+    if ! grep -qF "# hoodcat-harness runtime" "$gitignore" 2>/dev/null; then
+        return 0
+    fi
+
+    if dry_run_guard ".gitignore 레거시 항목 정리"; then
+        local tmp
+        tmp="$(mktemp)"
+        local in_block=false
+        while IFS= read -r line; do
+            if [[ "$line" == "# hoodcat-harness runtime" ]]; then
+                in_block=true
+                continue
+            fi
+            if $in_block; then
+                if [[ "$line" == ".claude/"* ]] || \
+                   [[ "$line" == ".claude" ]] || \
+                   [[ -z "$line" ]]; then
+                    continue
+                fi
+                in_block=false
+            fi
+            echo "$line" >> "$tmp"
+        done < "$gitignore"
+        mv "$tmp" "$gitignore"
+        log_info ".gitignore 레거시 항목 정리 완료"
+    fi
+}
+
 update_target_gitignore() {
     local target="$1"
     local gitignore="${target}/.gitignore"
@@ -635,11 +670,16 @@ cmd_update() {
     log_info "런타임 파일 보존 확인..."
     init_runtime_dirs "$target"  # 디렉토리가 없으면 생성
 
-    # 6. CLAUDE.md에 harness.md import 주입
+    # 6. .gitignore 업데이트 (레거시 항목 마이그레이션 포함)
+    log_info ".gitignore 확인 중..."
+    migrate_gitignore "$target"
+    update_target_gitignore "$target"
+
+    # 7. CLAUDE.md에 harness.md import 주입
     log_info "CLAUDE.md harness import 확인 중..."
     inject_harness_import "$target"
 
-    # 7. .harness-meta.json 갱신
+    # 8. .harness-meta.json 갱신
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
 
