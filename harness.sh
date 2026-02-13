@@ -23,10 +23,8 @@ readonly TEMPLATE_DIRS=(agents skills rules hooks)
 
 # .gitignore에 추가할 항목
 readonly GITIGNORE_ENTRIES=(
-    "# hoodcat-harness runtime"
-    ".claude/log/"
-    ".claude/shared-context/"
-    ".claude/.harness-meta.json"
+    "# hoodcat-harness"
+    ".claude/"
 )
 
 # 옵션 기본값
@@ -364,7 +362,7 @@ setup_git() {
     if [[ "$git_state" == "dirty" ]]; then
         # 케이스 3: dirty → 경고만
         log_warn "설치 전 커밋되지 않은 변경사항이 있었습니다. git 작업을 건너뜁니다."
-        log_warn "설치된 파일을 직접 커밋하세요: git add .claude/ .gitignore"
+        log_warn "설치된 파일을 직접 커밋하세요: git add .gitignore CLAUDE.md"
         return
     fi
 
@@ -382,7 +380,7 @@ setup_git() {
     if confirm "브랜치 '${branch}'를 생성하고 설치 파일을 커밋하시겠습니까?"; then
         if dry_run_guard "git branch + commit"; then
             git -C "$target" checkout -b "$branch"
-            git -C "$target" add .claude/ .gitignore
+            git -C "$target" add .gitignore CLAUDE.md
             git -C "$target" commit -m "feat: hoodcat-harness 멀티에이전트 시스템 설치"
             log_info "브랜치 '${branch}'에 커밋 완료"
         fi
@@ -401,15 +399,14 @@ clean_target_gitignore() {
             tmp="$(mktemp)"
             local in_block=false
             while IFS= read -r line; do
-                if [[ "$line" == "# hoodcat-harness runtime" ]]; then
+                if [[ "$line" == "# hoodcat-harness"* ]]; then
                     in_block=true
                     continue
                 fi
                 if $in_block; then
-                    # 빈 줄이거나 harness 관련 항목이면 스킵
-                    if [[ "$line" == ".claude/log/" ]] || \
-                       [[ "$line" == ".claude/shared-context/" ]] || \
-                       [[ "$line" == ".claude/.harness-meta.json" ]] || \
+                    # 빈 줄이거나 .claude/ 관련 항목이면 스킵
+                    if [[ "$line" == ".claude/"* ]] || \
+                       [[ "$line" == ".claude" ]] || \
                        [[ -z "$line" ]]; then
                         continue
                     fi
