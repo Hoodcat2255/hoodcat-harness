@@ -206,9 +206,24 @@ inject_harness_import() {
     local claude_md="${target}/CLAUDE.md"
     local import_line="@.claude/harness.md"
 
-    # CLAUDE.md가 없으면 스킵
+    # CLAUDE.md가 없으면 생성
     if [[ ! -f "$claude_md" ]]; then
-        log_debug "대상 CLAUDE.md가 없습니다. import 주입을 건너뜁니다."
+        if dry_run_guard "CLAUDE.md 생성"; then
+            local project_name
+            project_name="$(basename "$target")"
+            cat > "$claude_md" << EOF
+${import_line}
+
+# CLAUDE.md
+
+This file provides guidance to Claude Code when working with code in this repository.
+
+## 프로젝트 개요
+
+${project_name} 프로젝트입니다.
+EOF
+            log_info "CLAUDE.md를 생성했습니다. 프로젝트에 맞게 수정하세요."
+        fi
         return
     fi
 
