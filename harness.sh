@@ -542,8 +542,10 @@ cmd_update() {
                     log_warn "  - ${dir}/${file} (삭제 예정)"
                 elif [[ "$line" == *"differ"* ]]; then
                     local file
-                    file="$(echo "$line" | sed 's/Files .* and .* differ//' | sed "s|${src}||" | xargs)"
-                    log_info "  ~ ${dir}/ (변경됨)"
+                    file="${line#Files }"
+                    file="${file%% and *}"
+                    file="${file#${src}}"
+                    log_info "  ~ ${dir}/${file} (변경됨)"
                 fi
             done
         fi
@@ -631,10 +633,10 @@ cmd_delete() {
             echo "  .claude/${dir}/"
         fi
     done
-    echo "  .claude/harness.md"
-    echo "  .claude/statusline.sh"
-    echo "  .claude/settings.local.json"
-    echo "  .claude/.harness-meta.json"
+    [[ -f "${target}/.claude/harness.md" ]] && echo "  .claude/harness.md"
+    [[ -f "${target}/.claude/statusline.sh" ]] && echo "  .claude/statusline.sh"
+    [[ -f "${target}/.claude/settings.local.json" ]] && echo "  .claude/settings.local.json"
+    [[ -f "${target}/.claude/.harness-meta.json" ]] && echo "  .claude/.harness-meta.json"
     echo ""
 
     # 런타임 데이터 경고
