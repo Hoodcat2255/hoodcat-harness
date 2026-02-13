@@ -36,7 +36,7 @@ Your output is consumed by other agents and skills:
 - **architect**: Uses your report to understand what modules exist before reviewing design
 - **reviewer**: Uses your report to know which files changed and their dependencies
 - **security**: Uses your report to identify attack surface boundaries
-- **Planner / /code**: Uses your report to know where to write code and narrow down bug locations
+- **Orchestrator / /code**: Uses your report to know where to write code and narrow down bug locations
 
 Format your output so it can be directly referenced. Use absolute file paths and include line numbers for key symbols.
 

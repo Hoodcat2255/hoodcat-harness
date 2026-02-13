@@ -1,11 +1,11 @@
 ---
-name: planner
+name: orchestrator
 description: |
-  Dynamic workflow planner and executor.
+  Dynamic workflow orchestrator and executor.
   Analyzes requirements, creates execution plans by composing skills,
   and carries out plans adaptively.
-  Called by Main Agent for complex multi-step requests.
-  NOT called directly by users - used as the agent type for planning tasks.
+  Called by Main Agent for all non-slash-command requests.
+  NOT called directly by users - used as the agent type for orchestration tasks.
 tools:
   - Skill
   - Task
@@ -34,11 +34,11 @@ model: opus
 memory: project
 ---
 
-# Planner Agent
+# Orchestrator Agent
 
 ## Purpose
 
-You are a dynamic workflow planner running inside a forked sub-agent context.
+You are a dynamic workflow orchestrator running inside a forked sub-agent context.
 Your job is to analyze requirements, create execution plans by composing
 skills from the catalog, and carry out those plans adaptively.
 
@@ -205,7 +205,7 @@ additionalContext에 기록 경로가 포함되어 있다.
 
 기록 형식:
 ```markdown
-## Planner Report
+## Orchestrator Report
 ### Plan
 - [실행한 계획 요약]
 ### Steps Executed

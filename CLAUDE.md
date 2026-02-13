@@ -16,17 +16,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `.claude/shared-context/` - 에이전트 간 공유 컨텍스트 저장소 (런타임 생성, .gitignore)
 - `docs/` - 기능 문서 및 리서치 결과 저장
 
-## 아키텍처 (2-tier, Planner-Driven)
+## 아키텍처 (2-tier, Orchestrator-Driven)
 
-Main Agent는 순수 디스패처로, 단순 요청은 워커 스킬을 직접 호출하고, 복합 요청은 Planner에게 위임합니다.
-Planner는 요구를 분석하여 스킬을 동적으로 조합하고 이행합니다.
+Main Agent는 순수 디스패처로, 슬래시 커맨드만 직접 호출하고 그 외 모든 요청은 Orchestrator에게 위임합니다.
+Orchestrator는 요구를 분석하여 스킬을 동적으로 조합하고 이행합니다.
 
 ## 주요 스킬
 
 ### code
 코드 작성/수정/진단/패치 통합 스킬입니다.
 - 호출: `/code <작업 지시>`
-- Planner가 모든 코드 변경 작업에 사용
+- Orchestrator가 모든 코드 변경 작업에 사용
 
 ### test
 테스트 작성 및 실행 스킬입니다.

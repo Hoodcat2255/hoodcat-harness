@@ -2,39 +2,41 @@
 
 이 문서는 hoodcat-harness 멀티에이전트 시스템이 설치된 모든 프로젝트에 적용되는 공통 지침이다.
 
-## 스킬 아키텍처 (2-tier, Planner-Driven)
+## 스킬 아키텍처 (2-tier, Orchestrator-Driven)
 
 ```
 Tier 1: Main Agent (순수 디스패처)
   ├─ 슬래시 커맨드 → 해당 스킬 직접 호출
-  └─ 그 외 모든 요청 → Planner에게 위임: Task(planner, "$USER_REQUEST")
+  └─ 그 외 모든 요청 → Orchestrator에게 위임: Task(orchestrator, "$USER_REQUEST")
 
-Tier 2: Planner + 워커 스킬 + 리뷰 에이전트
+Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
 ```
 
 ### Main Agent의 역할
 
-Main Agent는 코드를 쓰지 않고, 테스트를 실행하지 않는다.
-사용자 의도를 파악하여 적절한 스킬 또는 Planner에게 위임한다.
+Main Agent는 코드를 쓰지 않고, 테스트를 실행하지 않고, 직접 분석하거나 판단하지 않는다.
+**슬래시 커맨드(`/`로 시작하는 요청)만 해당 스킬로 직접 호출하고, 그 외 모든 자연어 요청은 무조건 Orchestrator에게 위임한다.**
 
-#### 디스패치 기준
+#### 디스패치 기준 (절대 규칙)
 
-- **슬래시 커맨드** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
-- **그 외 모든 자연어 요청** → `Task(planner, "$USER_REQUEST")`로 Planner에 위임. 사용자가 "planner"를 명시하지 않아도 자동으로 위임한다.
+1. **슬래시 커맨드** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
+2. **그 외 모든 요청** → `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임
 
-### Planner
+이 규칙에 예외는 없다. 단순한 질문, 코드 설명 요청, 파일 탐색, 버그 수정, 기능 구현, 리팩토링 등 슬래시 커맨드가 아닌 모든 요청은 Orchestrator가 처리한다. Main Agent가 직접 코드를 읽거나, 분석하거나, 응답을 생성하지 않는다.
 
-Planner는 `.claude/agents/planner.md`로 정의된 에이전트다.
-Main Agent가 `Task(planner, ...)`로 호출하면 fork 컨텍스트에서 자율 실행한다.
+### Orchestrator
 
-Planner의 역할:
+Orchestrator는 `.claude/agents/orchestrator.md`로 정의된 에이전트다.
+Main Agent가 `Task(orchestrator, ...)`로 호출하면 fork 컨텍스트에서 자율 실행한다.
+
+Orchestrator의 역할:
 1. **분석**: 요구의 성격 파악 (버그? 기능? 리서치? 배포?)
 2. **계획**: 스킬 카탈로그에서 스킬을 선택하고 실행 순서를 동적으로 결정
 3. **이행**: Skill()과 Task()를 순차/병렬 호출하여 계획 실행
 4. **판단**: 각 단계 결과를 평가하고 다음 행동 결정 (적응적 실행)
 5. **보고**: 최종 결과를 Main Agent에 반환
 
-Planner는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나, 추가하거나, 순서를 바꾸거나, 동적으로 반복한다.
+Orchestrator는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나, 추가하거나, 순서를 바꾸거나, 동적으로 반복한다.
 
 ### 워커 스킬 (11개)
 
@@ -58,18 +60,18 @@ Planner는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 
 
 | 에이전트 | 역할 | 호출 방식 |
 |---------|------|----------|
-| **planner** | 동적 계획 + 이행 | Main Agent가 Task()로 호출 |
+| **orchestrator** | 동적 계획 + 이행 | Main Agent가 Task()로 호출 |
 | **coder** | 코딩, 빌드/테스트 | 스킬의 agent로 지정 |
 | **committer** | Git 커밋 (최소 권한, sonnet) | commit 스킬의 agent |
 | **researcher** | 웹 검색, 문서 작성 | 리서치 스킬의 agent |
-| **reviewer** | 코드 품질 리뷰 | Planner가 Task()로 호출 |
-| **security** | 보안 리뷰 | Planner가 Task()로 호출 |
-| **architect** | 아키텍처 리뷰 | Planner가 Task()로 호출 |
-| **navigator** | 코드베이스 탐색 | Planner가 Task()로 호출 |
+| **reviewer** | 코드 품질 리뷰 | Orchestrator가 Task()로 호출 |
+| **security** | 보안 리뷰 | Orchestrator가 Task()로 호출 |
+| **architect** | 아키텍처 리뷰 | Orchestrator가 Task()로 호출 |
+| **navigator** | 코드베이스 탐색 | Orchestrator가 Task()로 호출 |
 
 ## Git Worktree 규칙
 
-코드를 수정하는 계획을 이행할 때 Planner가 git worktree를 생성하고 관리한다.
+코드를 수정하는 계획을 이행할 때 Orchestrator가 git worktree를 생성하고 관리한다.
 
 - 멀티 세션이 같은 working directory를 공유하면 파일 충돌이 발생한다
 - 에이전트팀 병렬 개발 시 팀원들이 같은 파일을 동시에 수정하면 덮어쓰기가 발생한다
@@ -112,7 +114,7 @@ cd "$WORKTREE_DIR" && go mod download      # go.mod
 
 ### 팀원별 Worktree
 
-에이전트팀 병렬 개발 시 Planner가 팀원별 worktree를 사전 생성한다:
+에이전트팀 병렬 개발 시 Orchestrator가 팀원별 worktree를 사전 생성한다:
 ```bash
 git -C "$PROJECT_ROOT" worktree add \
   "$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-dev-N" -b "feat/{task-N-name}"

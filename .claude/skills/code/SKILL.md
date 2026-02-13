@@ -3,7 +3,7 @@ name: code
 description: |
   Writes, modifies, diagnoses, and patches code following project conventions.
   Handles implementation, bug fixing, refactoring, and lint/format.
-  Called by Planner for all code change tasks, or directly by users.
+  Called by Orchestrator for all code change tasks, or directly by users.
   Triggers on: "코드 작성", "코드 수정", "code", or any direct request
   to write or modify code without a broader workflow.
 argument-hint: "<작업 지시: 구현 스펙, 버그 설명, 리팩토링 요청 등>"
@@ -83,4 +83,4 @@ CLAUDE.md를 읽어 코딩 컨벤션을 파악한다.
 ## REVIEW 연동
 
 code 스킬은 자체 리뷰를 수행하지 않는다.
-리뷰는 Planner 또는 호출자가 별도로 Task(reviewer)를 호출하여 수행한다.
+리뷰는 Orchestrator 또는 호출자가 별도로 Task(reviewer)를 호출하여 수행한다.
