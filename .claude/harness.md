@@ -6,8 +6,8 @@
 
 ```
 Tier 1: Main Agent (순수 디스패처)
-  ├─ 단순 요청 → 워커 스킬 직접 호출
-  └─ 복합 요청 → Planner에게 위임: Task(planner, "$USER_REQUEST")
+  ├─ 슬래시 커맨드 → 해당 스킬 직접 호출
+  └─ 그 외 모든 요청 → Planner에게 위임: Task(planner, "$USER_REQUEST")
 
 Tier 2: Planner + 워커 스킬 + 리뷰 에이전트
 ```
@@ -19,8 +19,8 @@ Main Agent는 코드를 쓰지 않고, 테스트를 실행하지 않는다.
 
 #### 디스패치 기준
 
-- **명시적 단일 스킬 호출** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
-- **복합 요청** (구현, 버그 수정, 개선, 프로젝트 생성, 긴급 수정 등) → `Task(planner, "$USER_REQUEST")`로 Planner에 위임
+- **슬래시 커맨드** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
+- **그 외 모든 자연어 요청** → `Task(planner, "$USER_REQUEST")`로 Planner에 위임. 사용자가 "planner"를 명시하지 않아도 자동으로 위임한다.
 
 ### Planner
 

@@ -212,24 +212,47 @@ inject_harness_import() {
         return
     fi
 
-    # 이미 import가 있으면 스킵
-    if grep -qF "$import_line" "$claude_md" 2>/dev/null; then
-        log_debug "CLAUDE.md에 harness.md import가 이미 존재합니다."
+    # 이미 최상단에 있으면 스킵
+    if head -1 "$claude_md" | grep -qF "$import_line" 2>/dev/null; then
+        log_debug "CLAUDE.md 최상단에 harness.md import가 이미 존재합니다."
         return
     fi
 
-    if dry_run_guard "CLAUDE.md에 harness.md import 추가"; then
-        # 파일 끝에 개행 보장 후 import 섹션 추가
-        if [[ -s "$claude_md" ]] && [[ "$(tail -c 1 "$claude_md" | wc -l)" -eq 0 ]]; then
-            echo "" >> "$claude_md"
+    # 하단에 기존 import가 있으면 제거 (마이그레이션)
+    if grep -qF "$import_line" "$claude_md" 2>/dev/null; then
+        if dry_run_guard "CLAUDE.md에서 기존 harness import를 최상단으로 이동"; then
+            local tmp
+            tmp="$(mktemp)"
+            # 기존 import 블록 제거 (섹션 헤더 + import 줄 + 전후 빈 줄)
+            sed '/^## hoodcat-harness 공통 지침$/d' "$claude_md" \
+                | sed "/^${import_line//\//\\/}$/d" \
+                | sed -e :a -e '/^\n*$/{$d;N;ba}' > "$tmp"
+            # 최상단에 삽입
+            local tmp2
+            tmp2="$(mktemp)"
+            {
+                echo "$import_line"
+                echo ""
+                cat "$tmp"
+            } > "$tmp2"
+            mv "$tmp2" "$claude_md"
+            rm -f "$tmp"
+            log_info "CLAUDE.md에서 harness import를 최상단으로 이동했습니다."
         fi
+        return
+    fi
+
+    # 신규 삽입
+    if dry_run_guard "CLAUDE.md에 harness.md import 추가 (최상단)"; then
+        local tmp
+        tmp="$(mktemp)"
         {
-            echo ""
-            echo "## hoodcat-harness 공통 지침"
-            echo ""
             echo "$import_line"
-        } >> "$claude_md"
-        log_info "CLAUDE.md에 harness.md import를 추가했습니다."
+            echo ""
+            cat "$claude_md"
+        } > "$tmp"
+        mv "$tmp" "$claude_md"
+        log_info "CLAUDE.md 최상단에 harness.md import를 추가했습니다."
     fi
 }
 

@@ -1,3 +1,5 @@
+@.claude/harness.md
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -54,10 +56,6 @@ Planner는 요구를 분석하여 스킬을 동적으로 조합하고 이행합�
 병렬 QA 스웜 스킬입니다.
 - 호출: `/qa-swarm [프로젝트 경로]`
 - 비용: 단일 테스트 대비 최대 4배 토큰
-
-## hoodcat-harness 공통 지침
-
-@.claude/harness.md
 
 ## 문서 작성 규칙
 
