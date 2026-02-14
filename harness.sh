@@ -558,6 +558,116 @@ clean_target_gitignore() {
 
 # --- 명령 구현 ---
 
+cmd_config() {
+    local global_env="$HOME/.claude/.env"
+
+    echo ""
+    log_info "=== 텔레그램 알림 환경변수 설정 ==="
+    log_info "대상 파일: ${global_env}"
+    echo ""
+
+    # ~/.claude/ 디렉토리가 없을 수 있으므로 생성
+    mkdir -p "$HOME/.claude"
+
+    # .env 파일이 없으면 빈 파일 생성
+    if [[ ! -f "$global_env" ]]; then
+        if dry_run_guard "~/.claude/.env 생성"; then
+            touch "$global_env"
+            log_info "~/.claude/.env 파일을 생성했습니다."
+        fi
+    fi
+
+    # 기존 값 로드
+    local current_token="" current_chat_id=""
+    if [[ -f "$global_env" ]]; then
+        current_token="$(grep '^HARNESS_TG_BOT_TOKEN=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_BOT_TOKEN=//' || true)"
+        current_chat_id="$(grep '^HARNESS_TG_CHAT_ID=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_CHAT_ID=//' || true)"
+    fi
+
+    # 현재 상태 표시
+    echo "현재 설정:"
+    if [[ -n "$current_token" && "$current_token" != "your_bot_token_here" ]]; then
+        # 토큰 마스킹: 앞 8자만 표시
+        local masked_token="${current_token:0:8}..."
+        echo -e "  HARNESS_TG_BOT_TOKEN: ${GREEN}${masked_token}${NC}"
+    else
+        echo -e "  HARNESS_TG_BOT_TOKEN: ${YELLOW}(미설정)${NC}"
+    fi
+    if [[ -n "$current_chat_id" && "$current_chat_id" != "your_chat_id_here" ]]; then
+        echo -e "  HARNESS_TG_CHAT_ID:   ${GREEN}${current_chat_id}${NC}"
+    else
+        echo -e "  HARNESS_TG_CHAT_ID:   ${YELLOW}(미설정)${NC}"
+    fi
+    echo ""
+
+    # 비대화형 환경이면 프롬프트 스킵
+    if [[ ! -t 0 ]]; then
+        log_warn "비대화형 환경입니다. ~/.claude/.env를 직접 편집하세요."
+        return
+    fi
+
+    # .env 파일에 변수를 설정하는 헬퍼 (macOS/Linux sed 호환)
+    _set_env_var() {
+        local var_name="$1" var_value="$2" env_file="$3"
+        if grep -q "^${var_name}=" "$env_file" 2>/dev/null; then
+            local tmp
+            tmp="$(mktemp)"
+            sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$env_file" > "$tmp"
+            mv "$tmp" "$env_file"
+        else
+            echo "${var_name}=${var_value}" >> "$env_file"
+        fi
+    }
+
+    # Bot Token 설정
+    log_info "텔레그램 알림 설정 (빈 Enter로 현재 값 유지)"
+    echo ""
+    echo -e "  ${BLUE}Bot token은 Telegram @BotFather에서 발급받을 수 있습니다.${NC}"
+    echo -n "  HARNESS_TG_BOT_TOKEN: "
+    read -r input_token
+    if [[ -n "$input_token" ]]; then
+        if dry_run_guard "HARNESS_TG_BOT_TOKEN 설정"; then
+            _set_env_var "HARNESS_TG_BOT_TOKEN" "$input_token" "$global_env"
+            log_info "HARNESS_TG_BOT_TOKEN 설정 완료"
+        fi
+    else
+        log_info "HARNESS_TG_BOT_TOKEN: 변경 없음"
+    fi
+
+    # Chat ID 설정
+    echo -e "  ${BLUE}Chat ID는 @userinfobot 또는 @getmyid_bot에서 확인할 수 있습니다.${NC}"
+    echo -n "  HARNESS_TG_CHAT_ID: "
+    read -r input_chat_id
+    if [[ -n "$input_chat_id" ]]; then
+        if dry_run_guard "HARNESS_TG_CHAT_ID 설정"; then
+            _set_env_var "HARNESS_TG_CHAT_ID" "$input_chat_id" "$global_env"
+            log_info "HARNESS_TG_CHAT_ID 설정 완료"
+        fi
+    else
+        log_info "HARNESS_TG_CHAT_ID: 변경 없음"
+    fi
+
+    echo ""
+    log_info "=== 설정 완료 ==="
+
+    # 최종 상태 표시
+    if [[ -f "$global_env" ]]; then
+        local final_token final_chat_id
+        final_token="$(grep '^HARNESS_TG_BOT_TOKEN=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_BOT_TOKEN=//' || true)"
+        final_chat_id="$(grep '^HARNESS_TG_CHAT_ID=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_CHAT_ID=//' || true)"
+
+        local token_ok=false chat_ok=false
+        [[ -n "$final_token" && "$final_token" != "your_bot_token_here" ]] && token_ok=true
+        [[ -n "$final_chat_id" && "$final_chat_id" != "your_chat_id_here" ]] && chat_ok=true
+
+        if $token_ok && $chat_ok; then
+            echo -e "텔레그램 알림: ${GREEN}활성화 가능${NC}"
+        else
+            echo -e "텔레그램 알림: ${YELLOW}미완료${NC} (두 값 모두 설정 필요)"
+        fi
+    fi
+}
+
 cmd_install() {
     local target="$1"
     validate_target "$target"
@@ -926,6 +1036,7 @@ usage() {
   update  [dir]    설치된 harness를 최신 버전으로 업데이트
   delete  [dir]    설치된 harness 삭제
   status  [dir]    설치 상태 확인
+  config           텔레그램 알림 환경변수 대화형 설정 (~/.claude/.env)
 
 옵션:
   -f, --force, -y   확인 프롬프트 스킵
@@ -942,7 +1053,7 @@ main() {
     # 인자 파싱
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            install|update|delete|status)
+            install|update|delete|status|config)
                 command="$1"
                 shift
                 ;;
@@ -977,6 +1088,13 @@ main() {
     done
 
     [[ -n "$command" ]] || { usage; exit 1; }
+
+    # config 명령은 대상 프로젝트 없이 독립 실행
+    if [[ "$command" == "config" ]]; then
+        cmd_config
+        return
+    fi
+
     [[ -n "$target" ]]  || target="."
 
     check_dependencies
