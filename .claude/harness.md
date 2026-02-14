@@ -134,10 +134,20 @@ git worktree remove <path>  # 특정 worktree 제거
 - 텍스트 보고("통과했습니다")를 신뢰하지 않는다
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
-## 품질 게이트 훅
+## 훅
+
+### 품질 게이트
 
 - `.claude/hooks/task-quality-gate.sh` (TaskCompleted): 구현 태스크 완료 시 빌드/테스트 자동 검증
 - `.claude/hooks/teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도
+
+### 텔레그램 알림
+
+- `.claude/hooks/notify-telegram.sh` (SubagentStop): Orchestrator 완료 시 텔레그램으로 알림 전송
+- 환경변수 `HARNESS_TG_BOT_TOKEN`, `HARNESS_TG_CHAT_ID`가 설정된 경우에만 동작
+- 환경변수는 `~/.claude/.env`에서 관리 (전역), 프로젝트별 `.env`로 오버라이드 가능
+- 설정: `./harness.sh config`으로 대화형 설정, 또는 `~/.claude/.env` 직접 편집
+- 참고: `.claude/.env.example` 템플릿
 
 ## 공유 컨텍스트 시스템
 

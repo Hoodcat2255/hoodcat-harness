@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일)
 - `.claude/agents/` - 커스텀 에이전트 정의
-- `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트 등)
+- `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 텔레그램 알림 등)
 - `.claude/shared-context/` - 에이전트 간 공유 컨텍스트 저장소 (런타임 생성, .gitignore)
 - `docs/` - 기능 문서 및 리서치 결과 저장
 
