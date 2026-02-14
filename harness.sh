@@ -199,6 +199,28 @@ copy_harness_md() {
     fi
 }
 
+check_global_env() {
+    local global_env="$HOME/.claude/.env"
+
+    if [[ -f "$global_env" ]]; then
+        log_info "전역 환경변수 파일 확인: ~/.claude/.env"
+        return
+    fi
+
+    # ~/.claude/ 디렉토리가 없을 수 있으므로 생성
+    mkdir -p "$HOME/.claude"
+
+    echo ""
+    log_warn "텔레그램 알림을 사용하려면 ~/.claude/.env에 환경변수를 설정하세요:"
+    echo ""
+    echo "  HARNESS_TG_BOT_TOKEN=your_bot_token_here"
+    echo "  HARNESS_TG_CHAT_ID=your_chat_id_here"
+    echo ""
+    echo -e "  ${BLUE}Bot token은 Telegram @BotFather에서 발급받을 수 있습니다.${NC}"
+    echo -e "  ${BLUE}Chat ID는 @userinfobot 또는 @getmyid_bot에서 확인할 수 있습니다.${NC}"
+    echo ""
+}
+
 inject_harness_import() {
     local target="$1"
     local claude_md="${target}/CLAUDE.md"
@@ -527,19 +549,23 @@ cmd_install() {
     log_info "설정 파일 복사 중..."
     copy_settings "$target" "install"
 
-    # 6. .gitignore 업데이트
+    # 6. 전역 환경 변수 확인
+    log_info "전역 환경 변수 확인 중..."
+    check_global_env
+
+    # 7. .gitignore 업데이트
     log_info ".gitignore 업데이트 중..."
     update_target_gitignore "$target"
 
-    # 7. CLAUDE.md에 harness.md import 주입
+    # 8. CLAUDE.md에 harness.md import 주입
     log_info "CLAUDE.md harness import 확인 중..."
     inject_harness_import "$target"
 
-    # 8. .harness-meta.json 기록
+    # 9. .harness-meta.json 기록
     log_info "메타 정보 기록 중..."
     write_harness_meta "$target" "install"
 
-    # 9. git 설정
+    # 10. git 설정
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
 
@@ -557,6 +583,7 @@ cmd_install() {
     echo "  .claude/harness.md"
     echo "  .claude/statusline.sh"
     echo "  .claude/settings.local.json"
+    [[ -f "$HOME/.claude/.env" ]] && echo "  ~/.claude/.env (전역)"
     echo ""
     echo -e "${YELLOW}[참고]${NC} CLAUDE.md는 프로젝트별로 다르므로 복사하지 않았습니다."
     echo -e "${YELLOW}[참고]${NC} 대상 프로젝트에 맞는 CLAUDE.md를 직접 작성하세요."
@@ -666,20 +693,24 @@ cmd_update() {
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
 
-    # 5. 런타임 파일 보존 (memory, log)
+    # 5. 전역 환경 변수 확인
+    log_info "전역 환경 변수 확인 중..."
+    check_global_env
+
+    # 6. 런타임 파일 보존 (memory, log)
     log_info "런타임 파일 보존 확인..."
     init_runtime_dirs "$target"  # 디렉토리가 없으면 생성
 
-    # 6. .gitignore 업데이트 (레거시 항목 마이그레이션 포함)
+    # 7. .gitignore 업데이트 (레거시 항목 마이그레이션 포함)
     log_info ".gitignore 확인 중..."
     migrate_gitignore "$target"
     update_target_gitignore "$target"
 
-    # 7. CLAUDE.md에 harness.md import 주입
+    # 8. CLAUDE.md에 harness.md import 주입
     log_info "CLAUDE.md harness import 확인 중..."
     inject_harness_import "$target"
 
-    # 8. .harness-meta.json 갱신
+    # 9. .harness-meta.json 갱신
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
 

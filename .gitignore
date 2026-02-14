@@ -1,2 +1,5 @@
 .claude/log/
 .claude/shared-context/
+.claude/settings.local.json
+.claude/.env
+.env
