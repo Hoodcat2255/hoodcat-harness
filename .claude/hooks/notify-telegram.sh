@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # SubagentStop Hook - notify-telegram.sh
-# Orchestrator 완료 시 텔레그램으로 풍부한 알림을 보낸다.
-# 공유 컨텍스트 파일의 구조화된 Orchestrator Report를 파싱하여 메시지 구성.
+# 에이전트 완료 시 텔레그램으로 알림을 보낸다.
+# orchestrator: 공유 컨텍스트의 구조화된 Report를 파싱하여 리치 메시지 구성.
+# 기타 에이전트: 간결한 완료 알림 메시지 전송.
 # 안전성: 어떤 상황에서도 exit 0으로 종료한다.
 
 set -euo pipefail
@@ -37,12 +38,41 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null || echo "")
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null || echo "")
 
-# orchestrator만 알림 대상
-if [ "$AGENT_TYPE" != "orchestrator" ]; then
-  exit 0
-fi
+log "${AGENT_TYPE} completed: session=$SESSION_ID id=$AGENT_ID"
 
-log "Orchestrator completed: session=$SESSION_ID id=$AGENT_ID"
+# 에이전트 타입별 표시 이름과 이모지 매핑
+get_agent_display_name() {
+  local agent_type="$1"
+  case "$agent_type" in
+    orchestrator) echo "Orchestrator" ;;
+    coder)        echo "Coder" ;;
+    researcher)   echo "Researcher" ;;
+    reviewer)     echo "Reviewer" ;;
+    security)     echo "Security" ;;
+    architect)    echo "Architect" ;;
+    navigator)    echo "Navigator" ;;
+    committer)    echo "Committer" ;;
+    *)            echo "$agent_type" ;;
+  esac
+}
+
+get_agent_emoji() {
+  local agent_type="$1"
+  case "$agent_type" in
+    orchestrator) echo $'\xe2\x9c\x85' ;;       # check mark (기존 유지, 상태에 따라 변경)
+    coder)        echo $'\xf0\x9f\x94\xa8' ;;    # hammer
+    researcher)   echo $'\xf0\x9f\x94\x8d' ;;    # magnifying glass
+    reviewer)     echo $'\xf0\x9f\x91\x80' ;;    # eyes
+    security)     echo $'\xf0\x9f\x9b\xa1' ;;    # shield
+    architect)    echo $'\xf0\x9f\x8f\x97' ;;    # building construction
+    navigator)    echo $'\xf0\x9f\xa7\xad' ;;    # compass
+    committer)    echo $'\xf0\x9f\x93\xa6' ;;    # package
+    *)            echo $'\xe2\x9a\x99\xef\xb8\x8f' ;;  # gear
+  esac
+}
+
+AGENT_DISPLAY_NAME=$(get_agent_display_name "$AGENT_TYPE")
+AGENT_EMOJI=$(get_agent_emoji "$AGENT_TYPE")
 
 # .env 파일 로드 (전역 ~/.claude/.env > 프로젝트별 .env 순서, 후자가 덮어씀)
 load_env() {
@@ -150,7 +180,7 @@ count_lines() {
 # 공유 컨텍스트에서 구조화된 데이터 추출
 # =====================================================================
 
-CONTEXT_FILE="$PROJECT_DIR/.claude/shared-context/${SESSION_ID}/orchestrator-${AGENT_ID}.md"
+CONTEXT_FILE="$PROJECT_DIR/.claude/shared-context/${SESSION_ID}/${AGENT_TYPE}-${AGENT_ID}.md"
 IS_STRUCTURED=false
 PLAN_SUMMARY=""
 FILES_CHANGED=""
@@ -217,97 +247,128 @@ has_issues() {
   return 0
 }
 
-if [ "$IS_STRUCTURED" = true ]; then
-  # --- 구조화된 리치 메시지 (HTML) ---
-  if has_issues; then
-    STATUS_EMOJI=$'\xe2\x9a\xa0\xef\xb8\x8f'  # warning sign
-  else
-    STATUS_EMOJI=$'\xe2\x9c\x85'  # check mark
-  fi
+if [ "$AGENT_TYPE" = "orchestrator" ]; then
+  # =====================================================================
+  # Orchestrator 메시지: 구조화된 리치 메시지 (기존 로직 100% 유지)
+  # =====================================================================
+  if [ "$IS_STRUCTURED" = true ]; then
+    # --- 구조화된 리치 메시지 (HTML) ---
+    if has_issues; then
+      STATUS_EMOJI=$'\xe2\x9a\xa0\xef\xb8\x8f'  # warning sign
+    else
+      STATUS_EMOJI=$'\xe2\x9c\x85'  # check mark
+    fi
 
-  ESCAPED_PROJECT=$(escape_html "$PROJECT_NAME")
-  ESCAPED_TIME=$(escape_html "$COMPLETED_AT")
+    ESCAPED_PROJECT=$(escape_html "$PROJECT_NAME")
+    ESCAPED_TIME=$(escape_html "$COMPLETED_AT")
 
-  # 헤더
-  MESSAGE="${STATUS_EMOJI} <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>"
+    # 헤더
+    MESSAGE="${STATUS_EMOJI} <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>"
 
-  # 작업 요약
-  if [ -n "$PLAN_SUMMARY" ]; then
-    ESCAPED_PLAN=$(escape_html "$PLAN_SUMMARY")
-    MESSAGE="${MESSAGE}
+    # 작업 요약
+    if [ -n "$PLAN_SUMMARY" ]; then
+      ESCAPED_PLAN=$(escape_html "$PLAN_SUMMARY")
+      MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x93\x8b'" <b>작업:</b> ${ESCAPED_PLAN}"
-  fi
+    fi
 
-  # 변경 파일
-  if [ "$FILE_COUNT" -gt 0 ]; then
-    MESSAGE="${MESSAGE}
+    # 변경 파일
+    if [ "$FILE_COUNT" -gt 0 ]; then
+      MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x93\x81'" <b>변경 파일 (${FILE_COUNT}개):</b>"
 
-    # 최대 10개까지 표시
-    DISPLAY_COUNT=10
-    SHOWN=0
-    while IFS= read -r fname; do
-      if [ "$SHOWN" -ge "$DISPLAY_COUNT" ]; then
-        REMAINING=$((FILE_COUNT - DISPLAY_COUNT))
-        MESSAGE="${MESSAGE}
+      # 최대 10개까지 표시
+      DISPLAY_COUNT=10
+      SHOWN=0
+      while IFS= read -r fname; do
+        if [ "$SHOWN" -ge "$DISPLAY_COUNT" ]; then
+          REMAINING=$((FILE_COUNT - DISPLAY_COUNT))
+          MESSAGE="${MESSAGE}
   ...외 ${REMAINING}개"
-        break
-      fi
-      ESCAPED_FNAME=$(escape_html "$fname")
-      MESSAGE="${MESSAGE}
+          break
+        fi
+        ESCAPED_FNAME=$(escape_html "$fname")
+        MESSAGE="${MESSAGE}
   <code>${ESCAPED_FNAME}</code>"
-      SHOWN=$((SHOWN + 1))
-    done <<< "$FILES_CHANGED"
-  fi
+        SHOWN=$((SHOWN + 1))
+      done <<< "$FILES_CHANGED"
+    fi
 
-  # 리뷰 결과
-  if [ -n "$REVIEW_VERDICTS" ]; then
-    ESCAPED_REVIEW=$(escape_html "$REVIEW_VERDICTS")
-    MESSAGE="${MESSAGE}
+    # 리뷰 결과
+    if [ -n "$REVIEW_VERDICTS" ]; then
+      ESCAPED_REVIEW=$(escape_html "$REVIEW_VERDICTS")
+      MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x94\x8d'" <b>리뷰:</b> ${ESCAPED_REVIEW}"
-  fi
+    fi
 
-  # 미해결 이슈
-  if has_issues; then
-    ESCAPED_ISSUES=$(escape_html "$UNRESOLVED_ISSUES")
-    MESSAGE="${MESSAGE}
+    # 미해결 이슈
+    if has_issues; then
+      ESCAPED_ISSUES=$(escape_html "$UNRESOLVED_ISSUES")
+      MESSAGE="${MESSAGE}
 
 "$'\xe2\x9a\xa0\xef\xb8\x8f'" <b>미해결:</b> ${ESCAPED_ISSUES}"
-  else
-    MESSAGE="${MESSAGE}
+    else
+      MESSAGE="${MESSAGE}
 
 "$'\xe2\x9c\x85'" <b>미해결:</b> 없음"
+    fi
+
+    # 시각
+    MESSAGE="${MESSAGE}
+
+"$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>"
+
+  else
+    # --- Fallback: 비구조화 메시지 (HTML) ---
+    ESCAPED_PROJECT=$(escape_html "$PROJECT_NAME")
+    ESCAPED_TIME=$(escape_html "$COMPLETED_AT")
+
+    if [ -f "$CONTEXT_FILE" ] && [ -s "$CONTEXT_FILE" ]; then
+      FALLBACK_SUMMARY=$(head -c 500 "$CONTEXT_FILE" 2>/dev/null || echo "")
+      ESCAPED_SUMMARY=$(escape_html "$FALLBACK_SUMMARY")
+
+      MESSAGE=$'\xe2\x9c\x85'" <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>
+
+"$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>
+
+"$'\xf0\x9f\x93\x9d'" <b>요약:</b>
+${ESCAPED_SUMMARY}"
+    else
+      MESSAGE=$'\xe2\x9c\x85'" <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>
+
+"$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>
+
+작업이 완료되었습니다."
+    fi
   fi
+
+else
+  # =====================================================================
+  # Non-orchestrator 에이전트: 간결한 완료 알림 메시지
+  # =====================================================================
+  ESCAPED_PROJECT=$(escape_html "$PROJECT_NAME")
+  ESCAPED_TIME=$(escape_html "$COMPLETED_AT")
+  ESCAPED_DISPLAY_NAME=$(escape_html "$AGENT_DISPLAY_NAME")
+
+  # 헤더
+  MESSAGE="${AGENT_EMOJI} <b>${ESCAPED_DISPLAY_NAME} 완료</b> | <code>${ESCAPED_PROJECT}</code>"
 
   # 시각
   MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>"
 
-else
-  # --- Fallback: 비구조화 메시지 (HTML) ---
-  ESCAPED_PROJECT=$(escape_html "$PROJECT_NAME")
-  ESCAPED_TIME=$(escape_html "$COMPLETED_AT")
-
+  # 공유 컨텍스트 파일이 존재하면 요약 추가 (최대 500자)
   if [ -f "$CONTEXT_FILE" ] && [ -s "$CONTEXT_FILE" ]; then
-    FALLBACK_SUMMARY=$(head -c 500 "$CONTEXT_FILE" 2>/dev/null || echo "")
-    ESCAPED_SUMMARY=$(escape_html "$FALLBACK_SUMMARY")
-
-    MESSAGE=$'\xe2\x9c\x85'" <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>
-
-"$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>
+    CONTEXT_SUMMARY=$(head -c 500 "$CONTEXT_FILE" 2>/dev/null || echo "")
+    ESCAPED_CONTEXT=$(escape_html "$CONTEXT_SUMMARY")
+    MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x93\x9d'" <b>요약:</b>
-${ESCAPED_SUMMARY}"
-  else
-    MESSAGE=$'\xe2\x9c\x85'" <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>
-
-"$'\xf0\x9f\x95\x90'" <i>${ESCAPED_TIME}</i>
-
-작업이 완료되었습니다."
+${ESCAPED_CONTEXT}"
   fi
 fi
 
