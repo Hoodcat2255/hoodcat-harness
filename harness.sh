@@ -202,22 +202,101 @@ copy_harness_md() {
 check_global_env() {
     local global_env="$HOME/.claude/.env"
 
-    if [[ -f "$global_env" ]]; then
-        log_info "전역 환경변수 파일 확인: ~/.claude/.env"
-        return
-    fi
-
     # ~/.claude/ 디렉토리가 없을 수 있으므로 생성
     mkdir -p "$HOME/.claude"
 
+    # .env 파일이 없으면 빈 파일 생성
+    if [[ ! -f "$global_env" ]]; then
+        if dry_run_guard "~/.claude/.env 생성"; then
+            touch "$global_env"
+            log_info "~/.claude/.env 파일을 생성했습니다."
+        fi
+    fi
+
+    # 기존 값 로드 (POSIX grep 호환)
+    local current_token="" current_chat_id=""
+    if [[ -f "$global_env" ]]; then
+        current_token="$(grep '^HARNESS_TG_BOT_TOKEN=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_BOT_TOKEN=//' || true)"
+        current_chat_id="$(grep '^HARNESS_TG_CHAT_ID=' "$global_env" 2>/dev/null | sed 's/^HARNESS_TG_CHAT_ID=//' || true)"
+    fi
+
+    # placeholder 판별 함수
+    _is_empty_or_placeholder() {
+        local val="$1"
+        [[ -z "$val" ]] && return 0
+        [[ "$val" == "your_bot_token_here" ]] && return 0
+        [[ "$val" == "your_chat_id_here" ]] && return 0
+        return 1
+    }
+
+    local needs_token=false needs_chat_id=false
+    _is_empty_or_placeholder "$current_token" && needs_token=true
+    _is_empty_or_placeholder "$current_chat_id" && needs_chat_id=true
+
+    # 이미 유효한 값이 설정되어 있으면 완료
+    if ! $needs_token && ! $needs_chat_id; then
+        log_info "전역 환경변수 확인: ~/.claude/.env (설정 완료)"
+        return
+    fi
+
+    # FORCE 모드이면 프롬프트 스킵
+    if $FORCE; then
+        log_warn "텔레그램 알림 환경변수가 미설정 상태입니다. ~/.claude/.env를 직접 편집하세요."
+        return
+    fi
+
+    # 비대화형 환경이면 프롬프트 스킵
+    if [[ ! -t 0 ]]; then
+        log_warn "비대화형 환경입니다. 텔레그램 알림 환경변수를 ~/.claude/.env에 직접 설정하세요."
+        return
+    fi
+
+    # 대화형 프롬프트
     echo ""
-    log_warn "텔레그램 알림을 사용하려면 ~/.claude/.env에 환경변수를 설정하세요:"
+    log_info "텔레그램 알림 설정 (빈 Enter로 스킵 가능)"
     echo ""
-    echo "  HARNESS_TG_BOT_TOKEN=your_bot_token_here"
-    echo "  HARNESS_TG_CHAT_ID=your_chat_id_here"
-    echo ""
-    echo -e "  ${BLUE}Bot token은 Telegram @BotFather에서 발급받을 수 있습니다.${NC}"
-    echo -e "  ${BLUE}Chat ID는 @userinfobot 또는 @getmyid_bot에서 확인할 수 있습니다.${NC}"
+
+    # .env 파일에 변수를 설정하는 헬퍼 (macOS/Linux sed 호환)
+    _set_env_var() {
+        local var_name="$1" var_value="$2" env_file="$3"
+        if grep -q "^${var_name}=" "$env_file" 2>/dev/null; then
+            local tmp
+            tmp="$(mktemp)"
+            sed "s|^${var_name}=.*|${var_name}=${var_value}|" "$env_file" > "$tmp"
+            mv "$tmp" "$env_file"
+        else
+            echo "${var_name}=${var_value}" >> "$env_file"
+        fi
+    }
+
+    if $needs_token; then
+        echo -e "  ${BLUE}Bot token은 Telegram @BotFather에서 발급받을 수 있습니다.${NC}"
+        echo -n "  HARNESS_TG_BOT_TOKEN: "
+        read -r input_token
+        if [[ -n "$input_token" ]]; then
+            if dry_run_guard "HARNESS_TG_BOT_TOKEN 설정"; then
+                _set_env_var "HARNESS_TG_BOT_TOKEN" "$input_token" "$global_env"
+                log_info "HARNESS_TG_BOT_TOKEN 설정 완료"
+            fi
+        else
+            log_info "HARNESS_TG_BOT_TOKEN: 나중에 설정하겠습니다."
+        fi
+    fi
+
+    if $needs_chat_id; then
+        echo -e "  ${BLUE}Chat ID는 @userinfobot 또는 @getmyid_bot에서 확인할 수 있습니다.${NC}"
+        echo -n "  HARNESS_TG_CHAT_ID: "
+        read -r input_chat_id
+        if [[ -n "$input_chat_id" ]]; then
+            if dry_run_guard "HARNESS_TG_CHAT_ID 설정"; then
+                _set_env_var "HARNESS_TG_CHAT_ID" "$input_chat_id" "$global_env"
+                log_info "HARNESS_TG_CHAT_ID 설정 완료"
+            fi
+        else
+            log_info "HARNESS_TG_CHAT_ID: 나중에 설정하겠습니다."
+        fi
+    fi
+
     echo ""
 }
 
