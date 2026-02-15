@@ -150,7 +150,7 @@ SAMPLE_REPORT='## Orchestrator Report
 ### Files Changed
 - `.claude/hooks/notify-telegram.sh` -- 텔레그램 알림 훅 (신규)
 - `.claude/.env.example` -- 환경 변수 템플릿 (신규)
-- `.gitignore` -- .env, settings.local.json 추가
+- `.gitignore` -- .env 추가
 
 ### Review Verdicts
 - N/A (단순 기능 추가)
@@ -208,7 +208,7 @@ assert_contains "Plain format: lib/utils.js extracted" "$FILENAMES_PL" "lib/util
 # 2c. Hook file format with em-dash and description
 INPUT_HOOK='- `.claude/hooks/notify-telegram.sh` -- 텔레그램 알림 훅 (신규)
 - `.claude/.env.example` -- 환경 변수 템플릿 (신규)
-- `.gitignore` -- .env, settings.local.json 추가'
+- `.gitignore` -- .env 추가'
 FILENAMES_HK=$(extract_filenames "$INPUT_HOOK")
 assert_contains "Hook format: notify-telegram.sh path" "$FILENAMES_HK" ".claude/hooks/notify-telegram.sh"
 assert_contains "Hook format: .env.example path" "$FILENAMES_HK" ".claude/.env.example"
@@ -374,7 +374,7 @@ if [ -f "$REAL_CONTEXT_FILE" ]; then
   assert_contains "Real data: Files include notify-telegram.sh" "$FILES_CHANGED" "notify-telegram.sh"
   assert_contains "Real data: Files include .env.example" "$FILES_CHANGED" ".env.example"
   assert_contains "Real data: Files include .gitignore" "$FILES_CHANGED" ".gitignore"
-  assert_contains "Real data: Files include settings.local.json" "$FILES_CHANGED" "settings.local.json"
+  assert_contains "Real data: Files include settings file" "$FILES_CHANGED" "settings"
   assert_contains "Real data: Review verdict is N/A" "$REVIEW_VERDICTS" "N/A"
 
   # has_issues should return false for this data (없음)

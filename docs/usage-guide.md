@@ -329,7 +329,7 @@ git worktree remove <path>  # 특정 worktree 제거
 ├── agent-memory/                    # 에이전트별 영속 메모리
 ├── shared-context-config.json       # 공유 컨텍스트 설정
 ├── harness.md                       # 공통 지침 (모든 프로젝트에 적용)
-├── settings.local.json              # 훅/상태표시줄 설정
+├── settings.json                    # 훅/상태표시줄 설정
 └── statusline.sh                    # 상태표시줄
 ```
 
