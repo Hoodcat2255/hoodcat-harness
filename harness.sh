@@ -123,6 +123,15 @@ init_runtime_dirs() {
     fi
 }
 
+merge_settings_json() {
+    local src="$1"  # harness (우선)
+    local dst="$2"  # 기존
+    if ! command -v jq &>/dev/null; then
+        return 1
+    fi
+    jq -s '.[0] * .[1]' "$dst" "$src"
+}
+
 copy_settings() {
     local target="$1"
     local mode="${2:-install}"  # install or update
@@ -151,17 +160,38 @@ copy_settings() {
         echo ""
 
         if confirm "settings.json을 덮어쓰시겠습니까?"; then
-            if dry_run_guard "settings.json 덮어쓰기"; then
-                cp "$src" "$dst"
-                log_info "settings.json 업데이트 완료"
+            if dry_run_guard "settings.json 업데이트"; then
+                local merged
+                if merged=$(merge_settings_json "$src" "$dst"); then
+                    echo "$merged" > "$dst"
+                    log_info "settings.json 머지 완료 (harness 설정 우선 적용)"
+                else
+                    log_warn "jq가 없어 머지 불가. 백업 후 덮어씁니다."
+                    cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
+                    cp "$src" "$dst"
+                    log_info "settings.json 덮어쓰기 완료 (백업 생성됨)"
+                fi
             fi
         else
             log_info "settings.json 보존"
         fi
     else
         if dry_run_guard "settings.json 복사"; then
-            cp "$src" "$dst"
-            log_debug "settings.json 복사 완료"
+            if [[ -f "$dst" ]]; then
+                local merged
+                if merged=$(merge_settings_json "$src" "$dst"); then
+                    echo "$merged" > "$dst"
+                    log_debug "settings.json 머지 완료 (기존 설정 보존)"
+                else
+                    log_warn "jq가 없어 머지 불가. 백업 후 덮어씁니다."
+                    cp "$dst" "${dst}.bak.$(date +%Y%m%d%H%M%S)"
+                    cp "$src" "$dst"
+                    log_debug "settings.json 복사 완료 (백업 생성됨)"
+                fi
+            else
+                cp "$src" "$dst"
+                log_debug "settings.json 복사 완료"
+            fi
         fi
     fi
 }
