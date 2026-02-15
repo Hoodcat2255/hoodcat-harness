@@ -126,22 +126,22 @@ init_runtime_dirs() {
 copy_settings() {
     local target="$1"
     local mode="${2:-install}"  # install or update
-    local src="${SOURCE_CLAUDE_DIR}/settings.local.json"
-    local dst="${target}/.claude/settings.local.json"
+    local src="${SOURCE_CLAUDE_DIR}/settings.json"
+    local dst="${target}/.claude/settings.json"
 
     if [[ ! -f "$src" ]]; then
-        log_warn "소스 settings.local.json이 없습니다."
+        log_warn "소스 settings.json이 없습니다."
         return
     fi
 
     if [[ "$mode" == "update" && -f "$dst" ]]; then
         if diff -q "$src" "$dst" &>/dev/null; then
-            log_info "settings.local.json: 변경 없음"
+            log_info "settings.json: 변경 없음"
             return
         fi
 
         echo ""
-        log_warn "settings.local.json에 변경이 있습니다:"
+        log_warn "settings.json에 변경이 있습니다:"
         # macOS diff lacks --color; fall back to plain diff
         if diff --help 2>&1 | grep -q -- '--color'; then
             diff --color=auto "$src" "$dst" || true
@@ -150,18 +150,18 @@ copy_settings() {
         fi
         echo ""
 
-        if confirm "settings.local.json을 덮어쓰시겠습니까?"; then
-            if dry_run_guard "settings.local.json 덮어쓰기"; then
+        if confirm "settings.json을 덮어쓰시겠습니까?"; then
+            if dry_run_guard "settings.json 덮어쓰기"; then
                 cp "$src" "$dst"
-                log_info "settings.local.json 업데이트 완료"
+                log_info "settings.json 업데이트 완료"
             fi
         else
-            log_info "settings.local.json 보존"
+            log_info "settings.json 보존"
         fi
     else
-        if dry_run_guard "settings.local.json 복사"; then
+        if dry_run_guard "settings.json 복사"; then
             cp "$src" "$dst"
-            log_debug "settings.local.json 복사 완료"
+            log_debug "settings.json 복사 완료"
         fi
     fi
 }
@@ -734,7 +734,7 @@ cmd_install() {
     log_info "런타임 디렉토리 생성 중..."
     init_runtime_dirs "$target"
 
-    # 5. settings.local.json 복사
+    # 5. settings.json 복사
     log_info "설정 파일 복사 중..."
     copy_settings "$target" "install"
 
@@ -771,7 +771,7 @@ cmd_install() {
     done
     echo "  .claude/harness.md"
     echo "  .claude/statusline.sh"
-    echo "  .claude/settings.local.json"
+    echo "  .claude/settings.json"
     [[ -f "$HOME/.claude/.env" ]] && echo "  ~/.claude/.env (전역)"
     echo ""
     echo -e "${YELLOW}[참고]${NC} CLAUDE.md는 프로젝트별로 다르므로 복사하지 않았습니다."
@@ -838,7 +838,7 @@ cmd_update() {
     done
 
     # standalone 파일 변경 감지
-    local standalone_files=(harness.md statusline.sh settings.local.json)
+    local standalone_files=(harness.md statusline.sh settings.json)
     for file in "${standalone_files[@]}"; do
         local src="${SOURCE_CLAUDE_DIR}/${file}"
         local dst="${target}/.claude/${file}"
@@ -878,7 +878,7 @@ cmd_update() {
     log_info "공통 지침 파일 업데이트 중..."
     copy_harness_md "$target"
 
-    # 4. settings.local.json 업데이트
+    # 4. settings.json 업데이트
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
 
@@ -930,7 +930,7 @@ cmd_delete() {
     done
     [[ -f "${target}/.claude/harness.md" ]] && echo "  .claude/harness.md"
     [[ -f "${target}/.claude/statusline.sh" ]] && echo "  .claude/statusline.sh"
-    [[ -f "${target}/.claude/settings.local.json" ]] && echo "  .claude/settings.local.json"
+    [[ -f "${target}/.claude/settings.json" ]] && echo "  .claude/settings.json"
     [[ -f "${target}/.claude/.harness-meta.json" ]] && echo "  .claude/.harness-meta.json"
     echo ""
 
