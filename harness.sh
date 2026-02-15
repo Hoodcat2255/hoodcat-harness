@@ -132,6 +132,43 @@ merge_settings_json() {
     jq -s '.[0] * .[1]' "$dst" "$src"
 }
 
+unmerge_settings_json() {
+    local target="$1"
+    local dst="${target}/.claude/settings.json"
+    local src="${SOURCE_CLAUDE_DIR}/settings.json"
+
+    [[ -f "$dst" ]] || return 0
+
+    if command -v jq &>/dev/null && [[ -f "$src" ]]; then
+        # harness 소스의 top-level 키 목록을 동적으로 추출하여 제거
+        local keys
+        keys=$(jq -r 'keys[]' "$src" | paste -sd ',' -)
+        local del_expr
+        del_expr=$(jq -r '[keys[] | "del(.\(.))"] | join(" | ")' "$src")
+
+        if dry_run_guard "settings.json에서 harness 키 제거"; then
+            local result
+            result=$(jq "${del_expr}" "$dst")
+            if [[ "$result" == "{}" ]]; then
+                rm -f "$dst"
+                log_info "settings.json 삭제 완료 (harness 키만 있었음)"
+            else
+                echo "$result" > "$dst"
+                log_info "settings.json에서 harness 키(${keys}) 제거 완료"
+            fi
+        fi
+    else
+        # jq가 없으면 프로젝트 루트에 백업 후 삭제
+        if dry_run_guard "settings.json 백업 후 삭제 (jq 미설치)"; then
+            local backup_name="settings.json.bak.$(date +%Y%m%d%H%M%S)"
+            cp "$dst" "${target}/${backup_name}"
+            rm -f "$dst"
+            log_warn "settings.json을 프로젝트 루트에 백업했습니다: ${backup_name}"
+            log_warn "jq가 있으면 harness 키만 선택적으로 제거할 수 있습니다."
+        fi
+    fi
+}
+
 copy_settings() {
     local target="$1"
     local mode="${2:-install}"  # install or update
@@ -397,6 +434,32 @@ EOF
         } > "$tmp"
         mv "$tmp" "$claude_md"
         log_info "CLAUDE.md 최상단에 harness.md import를 추가했습니다."
+    fi
+}
+
+remove_harness_import() {
+    local target="$1"
+    local claude_md="${target}/CLAUDE.md"
+    local import_line="@.claude/harness.md"
+
+    [[ -f "$claude_md" ]] || return 0
+
+    if ! grep -qF "$import_line" "$claude_md" 2>/dev/null; then
+        log_debug "CLAUDE.md에 harness import가 없습니다."
+        return 0
+    fi
+
+    if dry_run_guard "CLAUDE.md에서 harness import 제거"; then
+        local tmp
+        tmp="$(mktemp)"
+        # import 줄 제거
+        grep -vF "$import_line" "$claude_md" > "$tmp"
+        # 파일 시작 부분의 연속 빈 줄 정리
+        sed '/./,$!d' "$tmp" > "${tmp}.2"
+        # 연속 빈 줄을 하나로 압축
+        cat -s "${tmp}.2" > "$claude_md"
+        rm -f "$tmp" "${tmp}.2"
+        log_info "CLAUDE.md에서 harness import를 제거했습니다."
     fi
 }
 
@@ -948,46 +1011,117 @@ cmd_delete() {
 
     echo ""
     log_info "=== hoodcat-harness 삭제 ==="
-    log_info "대상: ${target}/.claude/"
+    log_info "대상: ${target}"
     echo ""
+
+    # harness가 설치한 디렉토리 목록
+    local harness_dirs=(agents skills rules hooks shared-context log)
+    # harness가 설치한 파일 목록
+    local harness_files=(harness.md statusline.sh .harness-meta.json shared-context-config.json .env.example)
 
     # 삭제 대상 표시
     echo "삭제될 항목:"
-    for dir in "${TEMPLATE_DIRS[@]}"; do
+    for dir in "${harness_dirs[@]}"; do
         if [[ -d "${target}/.claude/${dir}" ]]; then
             echo "  .claude/${dir}/"
         fi
     done
-    [[ -f "${target}/.claude/harness.md" ]] && echo "  .claude/harness.md"
-    [[ -f "${target}/.claude/statusline.sh" ]] && echo "  .claude/statusline.sh"
-    [[ -f "${target}/.claude/settings.json" ]] && echo "  .claude/settings.json"
-    [[ -f "${target}/.claude/.harness-meta.json" ]] && echo "  .claude/.harness-meta.json"
+    for file in "${harness_files[@]}"; do
+        if [[ -f "${target}/.claude/${file}" ]]; then
+            echo "  .claude/${file}"
+        fi
+    done
+    if [[ -f "${target}/.claude/settings.json" ]]; then
+        if command -v jq &>/dev/null; then
+            echo "  .claude/settings.json (harness 키만 제거)"
+        else
+            echo "  .claude/settings.json (백업 후 삭제)"
+        fi
+    fi
     echo ""
 
-    # 런타임 데이터 경고
-    local has_runtime=false
-    if [[ -d "${target}/.claude/log" ]] && [[ -n "$(ls -A "${target}/.claude/log" 2>/dev/null)" ]]; then
-        log_warn "로그 데이터가 존재합니다: .claude/log/"
-        has_runtime=true
-    fi
-
-    if $has_runtime; then
+    # CLAUDE.md import 제거 예고
+    if [[ -f "${target}/CLAUDE.md" ]] && grep -qF "@.claude/harness.md" "${target}/CLAUDE.md" 2>/dev/null; then
+        echo "추가 변경:"
+        echo "  CLAUDE.md에서 @.claude/harness.md import 제거"
         echo ""
-        log_warn "런타임 데이터도 함께 삭제됩니다!"
     fi
 
-    echo ""
-    if ! confirm "정말로 .claude/ 전체를 삭제하시겠습니까?"; then
+    # .claude/ 하위에 harness가 관리하지 않는 항목 감지
+    local has_user_files=false
+    if [[ -d "${target}/.claude" ]]; then
+        while IFS= read -r item; do
+            local basename
+            basename="$(basename "$item")"
+            local is_harness=false
+            for dir in "${harness_dirs[@]}"; do
+                [[ "$basename" == "$dir" ]] && is_harness=true && break
+            done
+            for file in "${harness_files[@]}"; do
+                [[ "$basename" == "$file" ]] && is_harness=true && break
+            done
+            [[ "$basename" == "settings.json" ]] && is_harness=true
+            if ! $is_harness; then
+                if ! $has_user_files; then
+                    log_info "보존될 항목 (.claude/ 내 사용자 파일):"
+                    has_user_files=true
+                fi
+                echo "  .claude/${basename}"
+            fi
+        done < <(find "${target}/.claude" -mindepth 1 -maxdepth 1 2>/dev/null)
+        if $has_user_files; then
+            echo ""
+        fi
+    fi
+
+    if ! confirm "harness를 삭제하시겠습니까?"; then
         die "삭제를 취소했습니다."
     fi
 
-    if dry_run_guard ".claude/ 삭제"; then
-        rm -rf "${target}/.claude"
-        log_info ".claude/ 삭제 완료"
-    fi
+    echo ""
 
-    # .gitignore 정리
+    # 1. 디렉토리 삭제
+    for dir in "${harness_dirs[@]}"; do
+        if [[ -d "${target}/.claude/${dir}" ]]; then
+            if dry_run_guard ".claude/${dir}/ 삭제"; then
+                rm -rf "${target}/.claude/${dir}"
+                log_info ".claude/${dir}/ 삭제 완료"
+            fi
+        fi
+    done
+
+    # 2. 파일 삭제
+    for file in "${harness_files[@]}"; do
+        if [[ -f "${target}/.claude/${file}" ]]; then
+            if dry_run_guard ".claude/${file} 삭제"; then
+                rm -f "${target}/.claude/${file}"
+                log_info ".claude/${file} 삭제 완료"
+            fi
+        fi
+    done
+
+    # 3. settings.json에서 harness 키 제거 (또는 백업 후 삭제)
+    log_info "settings.json 정리 중..."
+    unmerge_settings_json "$target"
+
+    # 4. CLAUDE.md에서 harness import 제거
+    log_info "CLAUDE.md 정리 중..."
+    remove_harness_import "$target"
+
+    # 5. .gitignore 정리
     clean_target_gitignore "$target"
+
+    # 6. .claude/ 디렉토리가 비었으면 제거
+    if [[ -d "${target}/.claude" ]]; then
+        if [[ -z "$(ls -A "${target}/.claude" 2>/dev/null)" ]]; then
+            if dry_run_guard "빈 .claude/ 디렉토리 삭제"; then
+                rmdir "${target}/.claude"
+                log_info "빈 .claude/ 디렉토리 삭제 완료"
+            fi
+        else
+            log_info ".claude/ 디렉토리에 사용자 파일이 남아 있어 보존합니다."
+        fi
+    fi
 
     echo ""
     log_info "=== 삭제 완료 ==="
