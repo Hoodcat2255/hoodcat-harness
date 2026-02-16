@@ -44,11 +44,6 @@ fi
 install_completion() {
     local shell_name shell_rc eval_line marker
 
-    # 비대화형 환경이면 스킵
-    if [[ ! -t 0 ]]; then
-        return
-    fi
-
     # 셸 감지
     shell_name="$(basename "${SHELL:-}")"
     case "$shell_name" in
@@ -68,11 +63,6 @@ install_completion() {
         echo "셸 자동완성: 이미 ${shell_rc}에 설치되어 있습니다."
         return
     fi
-
-    # 확인
-    echo -n "셸 자동완성을 ${shell_rc}에 추가하시겠습니까? [Y/n] "
-    read -r answer
-    [[ "$answer" =~ ^[Nn]$ ]] && return
 
     # 파일 끝에 개행이 없으면 추가
     if [[ -f "$shell_rc" && -s "$shell_rc" ]] && [[ "$(tail -c 1 "$shell_rc" | wc -l)" -eq 0 ]]; then
