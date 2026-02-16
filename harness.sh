@@ -1214,6 +1214,170 @@ cmd_status() {
     fi
 }
 
+cmd_completion() {
+    local shell_type="${1:-}"
+
+    if [[ -z "$shell_type" ]]; then
+        log_error "셸 타입을 지정하세요: bash 또는 zsh"
+        echo ""
+        echo "사용법: harness completion <bash|zsh>"
+        echo ""
+        echo "설치 방법:"
+        echo "  bash: eval \"\$(harness completion bash)\""
+        echo "  zsh:  eval \"\$(harness completion zsh)\""
+        exit 1
+    fi
+
+    case "$shell_type" in
+        bash) _harness_completion_bash ;;
+        zsh)  _harness_completion_zsh ;;
+        *)
+            die "지원하지 않는 셸 타입: ${shell_type} (bash 또는 zsh만 지원)"
+            ;;
+    esac
+}
+
+_harness_completion_bash() {
+    # stderr로 설치 안내 출력
+    cat >&2 << 'INSTALL_GUIDE'
+# harness bash completion 설치 방법:
+#   1) 현재 세션에만 적용:
+#      eval "$(harness completion bash)"
+#
+#   2) 영구 적용 (~/.bashrc에 추가):
+#      echo 'eval "$(harness completion bash)"' >> ~/.bashrc
+#
+#   3) 파일로 저장:
+#      harness completion bash > /etc/bash_completion.d/harness
+INSTALL_GUIDE
+
+    # stdout으로 completion 스크립트 출력
+    cat << 'BASH_COMPLETION'
+_harness_completions() {
+    local cur prev commands options
+    COMPREPLY=()
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    commands="install update delete status config completion"
+    options="-f --force -y --yes -n --dry-run -v --verbose -h --help"
+
+    # 첫 번째 인자: 서브커맨드 또는 옵션
+    if [[ ${COMP_CWORD} -eq 1 ]]; then
+        COMPREPLY=( $(compgen -W "${commands} ${options}" -- "${cur}") )
+        return 0
+    fi
+
+    # 서브커맨드 이후의 인자
+    local cmd="${COMP_WORDS[1]}"
+    case "${cmd}" in
+        install|update|delete|status)
+            # 두 번째 인자: 디렉토리 경로
+            if [[ ${COMP_CWORD} -eq 2 && "${cur}" != -* ]]; then
+                COMPREPLY=( $(compgen -d -- "${cur}") )
+                return 0
+            fi
+            # 그 이후: 옵션
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            ;;
+        completion)
+            # 두 번째 인자: 셸 타입
+            if [[ ${COMP_CWORD} -eq 2 ]]; then
+                COMPREPLY=( $(compgen -W "bash zsh" -- "${cur}") )
+                return 0
+            fi
+            ;;
+        config)
+            # config는 추가 인자 없음, 옵션만
+            COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            ;;
+        *)
+            COMPREPLY=( $(compgen -W "${commands} ${options}" -- "${cur}") )
+            ;;
+    esac
+}
+
+complete -F _harness_completions harness
+complete -F _harness_completions harness.sh
+BASH_COMPLETION
+}
+
+_harness_completion_zsh() {
+    # stderr로 설치 안내 출력
+    cat >&2 << 'INSTALL_GUIDE'
+# harness zsh completion 설치 방법:
+#   1) 현재 세션에만 적용:
+#      eval "$(harness completion zsh)"
+#
+#   2) 영구 적용 (~/.zshrc에 추가):
+#      echo 'eval "$(harness completion zsh)"' >> ~/.zshrc
+#
+#   3) fpath에 추가 (권장):
+#      harness completion zsh > "${fpath[1]}/_harness"
+#      autoload -Uz compinit && compinit
+INSTALL_GUIDE
+
+    # stdout으로 completion 스크립트 출력
+    cat << 'ZSH_COMPLETION'
+#compdef harness harness.sh
+
+_harness() {
+    local -a commands options
+
+    commands=(
+        'install:대상 디렉토리에 harness 설치'
+        'update:설치된 harness를 최신 버전으로 업데이트'
+        'delete:설치된 harness 삭제'
+        'status:설치 상태 확인'
+        'config:텔레그램 알림 환경변수 대화형 설정'
+        'completion:셸 자동완성 스크립트 출력'
+    )
+
+    options=(
+        '-f[확인 프롬프트 스킵]'
+        '--force[확인 프롬프트 스킵]'
+        '-y[확인 프롬프트 스킵]'
+        '--yes[확인 프롬프트 스킵]'
+        '-n[실제 변경 없이 표시만]'
+        '--dry-run[실제 변경 없이 표시만]'
+        '-v[상세 로그 출력]'
+        '--verbose[상세 로그 출력]'
+        '-h[도움말 표시]'
+        '--help[도움말 표시]'
+    )
+
+    _arguments -C \
+        '1:command:->command' \
+        '2:argument:->argument' \
+        '*:options:->options'
+
+    case "${state}" in
+        command)
+            _describe 'command' commands
+            _values 'options' ${options[@]}
+            ;;
+        argument)
+            case "${words[2]}" in
+                install|update|delete|status)
+                    _directories
+                    ;;
+                completion)
+                    local -a shells
+                    shells=('bash:Bash 셸 자동완성' 'zsh:Zsh 셸 자동완성')
+                    _describe 'shell' shells
+                    ;;
+            esac
+            ;;
+        options)
+            _values 'options' ${options[@]}
+            ;;
+    esac
+}
+
+_harness "$@"
+ZSH_COMPLETION
+}
+
 # --- 메인 ---
 
 usage() {
@@ -1221,17 +1385,22 @@ usage() {
 사용법: harness <command> [dir] [options]
 
 명령:
-  install [dir]    대상 디렉토리에 harness 설치 (기본: 현재 디렉토리)
-  update  [dir]    설치된 harness를 최신 버전으로 업데이트
-  delete  [dir]    설치된 harness 삭제
-  status  [dir]    설치 상태 확인
-  config           텔레그램 알림 환경변수 대화형 설정 (~/.claude/.env)
+  install    [dir]       대상 디렉토리에 harness 설치 (기본: 현재 디렉토리)
+  update     [dir]       설치된 harness를 최신 버전으로 업데이트
+  delete     [dir]       설치된 harness 삭제
+  status     [dir]       설치 상태 확인
+  config                 텔레그램 알림 환경변수 대화형 설정 (~/.claude/.env)
+  completion <bash|zsh>  셸 자동완성 스크립트 출력
 
 옵션:
   -f, --force, -y   확인 프롬프트 스킵
   -n, --dry-run    실제 변경 없이 표시만
   -v, --verbose    상세 로그 출력
   -h, --help       도움말 표시
+
+자동완성 설치:
+  eval "$(harness completion bash)"   # bash
+  eval "$(harness completion zsh)"    # zsh
 EOF
 }
 
@@ -1242,7 +1411,7 @@ main() {
     # 인자 파싱
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            install|update|delete|status|config)
+            install|update|delete|status|config|completion)
                 command="$1"
                 shift
                 ;;
@@ -1278,9 +1447,14 @@ main() {
 
     [[ -n "$command" ]] || { usage; exit 1; }
 
-    # config 명령은 대상 프로젝트 없이 독립 실행
+    # config, completion 명령은 대상 프로젝트 없이 독립 실행
     if [[ "$command" == "config" ]]; then
         cmd_config
+        return
+    fi
+
+    if [[ "$command" == "completion" ]]; then
+        cmd_completion "$target"
         return
     fi
 
