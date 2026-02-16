@@ -33,6 +33,13 @@ model: opus
 memory: project
 ---
 
+<use_parallel_tool_calls>
+For maximum efficiency, whenever you perform multiple independent operations,
+invoke all relevant tools simultaneously in a single response rather than sequentially.
+This applies to ALL tool types including Skill(), Task(), Read, Grep, Glob, Bash, TaskCreate, and SendMessage.
+Err on the side of maximizing parallel tool calls.
+</use_parallel_tool_calls>
+
 # Orchestrator Agent
 
 ## Purpose
@@ -145,19 +152,29 @@ Before every tool call, ask yourself:
 4. **Adaptive retry**: Test failure → Skill("code", fix) → retest. After 2 failures → ask user.
 5. **Review last**: Review after all code changes. No mid-stream reviews.
 6. **Confirm commit**: Never auto-commit. Ask the user after plan completion.
+7. **Parallel by default**: 두 단계 사이에 데이터 의존성이 없으면 병렬로 호출한다. 순차 호출은 의존성이 있을 때만.
 
 ## Recipes
 
 Common skill composition patterns. These are guidelines, not rigid sequences.
 Adapt based on context: skip unnecessary steps, add extra steps, reorder, repeat.
 
+### Recipe Notation
+
+- `→` 순차 실행 (앞 단계 결과가 필요)
+- `‖` 병렬 실행 (독립적, 동시 호출)
+- `[ ]` 선택적 단계
+- `TeamExplore(...)` 에이전트팀 탐색 (navigator ‖ researcher 동시 실행)
+- `TeamReview(...)` 에이전트팀 리뷰 (reviewer ‖ security [‖ architect] 동시 실행)
+
 ### Feature Implementation
 
 ```
-Basic:    Task(navigator) → [deepresearch] → [blueprint] → code → test → Task(reviewer) → commit
+Basic:    [Task(navigator) ‖ deepresearch] → [blueprint] → code → test → Task(reviewer) → commit
 Simple:   Task(navigator) → code → test → commit
-Security: Task(navigator) → code → test → Task(reviewer) + Task(security) → commit
+Security: Task(navigator) → code → test → [Task(reviewer) ‖ Task(security)] → commit
 Large:    blueprint → Task(architect) → code × N → test → team-review → commit
+Team:     TeamExplore(navigator ‖ researcher) → blueprint → code × N → test → TeamReview(reviewer ‖ security [‖ architect]) → commit
 ```
 
 ### Bug Fix
@@ -165,14 +182,15 @@ Large:    blueprint → Task(architect) → code × N → test → team-review �
 ```
 Basic:    Task(navigator) → code(diagnose+patch) → test(regression) → Task(reviewer) → commit
 Simple:   code(patch) → test → commit
-Hard:     deepresearch(similar cases) → code(diagnose+patch) → test → commit
-Security: Task(security, severity) → code(patch) → Task(security) + Task(reviewer) → commit
+Hard:     [Task(navigator) ‖ deepresearch(similar cases)] → code(diagnose+patch) → test → commit
+Security: Task(security, severity) → code(patch) → [Task(security) ‖ Task(reviewer)] → commit
+Team-Sec: Task(security, severity) → code(patch) → TeamReview(reviewer ‖ security) → test(regression) → commit
 ```
 
 ### New Project
 
 ```
-Basic:    [deepresearch] → blueprint → Task(architect) →
+Basic:    [deepresearch ‖ Task(navigator)] → blueprint → Task(architect) →
           code(scaffold) → code(feature 1) → ... → test → qa-swarm → [deploy] → commit
 Undecided: decide(tech comparison) → deepresearch → blueprint → ...
 Large:    blueprint → agent team parallel dev → team-review → ...
@@ -182,16 +200,75 @@ Large:    blueprint → agent team parallel dev → team-review → ...
 
 ```
 Basic:    Task(navigator, impact scope) → [blueprint] → code → test(regression) → Task(reviewer) → commit
-Perf:     deepresearch(optimization) → code → test(benchmark) → commit
+Perf:     [Task(navigator) ‖ deepresearch(optimization)] → code → test(benchmark) → commit
 Refactor: Task(navigator) → code → test(full) → Task(architect) → commit
+Team:     TeamExplore(navigator ‖ researcher) → blueprint → code → test(full) → TeamReview(reviewer ‖ architect) → commit
 ```
 
 ### Hotfix
 
 ```
 Basic:    Task(security, severity) → code(minimal patch) →
-          Task(reviewer) + Task(security) [parallel] → test(regression) → security-scan → commit
+          [Task(reviewer) ‖ Task(security)] → test(regression) → security-scan → commit
 Critical: code(immediate patch) → Task(security) → commit
+Team:     Task(security, severity) → code(minimal patch) → TeamReview(reviewer ‖ security) → test(regression) → security-scan → commit
+```
+
+### Team-based Parallel Patterns
+
+병렬 실행이 구조적으로 보장되어야 하는 패턴에서는 에이전트팀(TeamCreate)을 사용한다.
+단순 `Task()` 병렬 호출과 달리, 팀은 런타임 수준에서 동시 실행을 강제한다.
+
+#### 패턴 1: 팀 리뷰 (Review Phase)
+
+코드 변경 후 리뷰 단계에서 reviewer, security, architect를 팀으로 동시 수행:
+
+```
+# 3+ 파일 변경 또는 보안 민감 코드
+TeamCreate("review-team")
+TaskCreate({subject: "코드 품질 리뷰", owner: "reviewer-agent"})
+TaskCreate({subject: "보안 리뷰", owner: "security-agent"})
+TaskCreate({subject: "아키텍처 리뷰", owner: "architect-agent"})  # 구조 변경 시
+# → 3개 에이전트가 동시에 리뷰 수행
+# → 모든 리뷰 완료 후 결과 종합
+TeamDelete()
+```
+
+이 패턴을 적용하는 기준:
+- 3+ 파일 변경 AND (보안 민감 OR 구조 변경) → 팀 리뷰 사용
+- 1-2 파일, 비보안 → 기존 단일 Task(reviewer)로 충분
+
+#### 패턴 2: 팀 탐색 (Exploration Phase)
+
+복잡한 기능 구현 전 탐색과 리서치를 팀으로 동시 수행:
+
+```
+# 복잡한 기능 (5+ 파일 예상) 또는 새 기술 도입
+TeamCreate("explore-team")
+TaskCreate({subject: "코드베이스 구조 및 영향 범위 탐색", owner: "navigator-agent"})
+TaskCreate({subject: "관련 기술/패턴 심층 조사", owner: "researcher-agent"})
+# → 탐색과 리서치가 동시에 진행
+# → 두 결과를 합쳐서 blueprint 또는 code 단계로 진행
+TeamDelete()
+```
+
+이 패턴을 적용하는 기준:
+- 5+ 파일 예상 AND 새 기술/패턴 필요 → 팀 탐색 사용
+- 단순 탐색만 필요 → Task(navigator) 단독으로 충분
+
+#### 패턴 3: 레시피 통합 예시
+
+Feature Implementation (Large + Security):
+```
+TeamCreate("explore-team")     ← 탐색 팀
+  navigator + researcher 병렬
+TeamDelete()
+  → blueprint → Task(architect)
+  → code × N → test
+TeamCreate("review-team")      ← 리뷰 팀
+  reviewer + security + architect 병렬
+TeamDelete()
+  → commit
 ```
 
 ## Execution Protocol
@@ -235,12 +312,83 @@ git -C "$PROJECT_ROOT" worktree remove "$WORKTREE_DIR"
 
 ### Parallel Invocation
 
-When two tasks are independent, invoke them in parallel:
+**원칙**: 두 호출 사이에 데이터 의존성이 없으면 반드시 병렬로 호출한다. 순차 호출은 앞 단계의 출력이 다음 단계의 입력으로 필요할 때만 사용한다.
+
+**병렬 판단 기준**:
+- 입력이 독립적인가? (서로의 출력을 필요로 하지 않는가)
+- 같은 파일을 수정하지 않는가? (읽기는 무관, 쓰기 충돌만 확인)
+
+**병렬 호출 패턴**:
+
 ```
-Task(reviewer, run_in_background=true): "<review request>"
-Task(security, run_in_background=true): "<security review request>"
-# Collect both results before proceeding
+# 패턴 1: 탐색 + 리서치 (독립적 정보 수집)
+Task(navigator, "코드베이스 구조 파악"): run_in_background
+Skill("deepresearch", "관련 기술 조사"): run_in_background
+# 두 결과를 합쳐서 다음 단계 진행
+
+# 패턴 2: 다중 리뷰 (독립적 검증)
+Task(reviewer, "코드 품질 리뷰"): run_in_background
+Task(security, "보안 리뷰"): run_in_background
+Task(architect, "구조 리뷰"): run_in_background
+# 모든 리뷰 결과 수집 후 판단
+
+# 패턴 3: 독립적 코드 변경 (서로 다른 파일)
+Skill("code", "모듈 A 수정 (worktree: $WT)"): run_in_background
+Skill("code", "모듈 B 수정 (worktree: $WT)"): run_in_background
+# 단, 같은 파일을 건드리면 순차로 전환
+
+# 패턴 4: 독립적 테스트 실행
+Skill("test", "유닛 테스트 (worktree: $WT)"): run_in_background
+Skill("test", "통합 테스트 (worktree: $WT)"): run_in_background
 ```
+
+**Few-shot 예시 (실제 도구 호출 형태)**:
+
+GOOD - 독립적인 탐색과 리서치를 한 턴에서 동시 호출:
+```
+탐색과 기술 조사를 병렬로 시작합니다.
+
+[Task(navigator, "코드베이스 구조 파악")]     ← 동시 호출
+[Skill("deepresearch", "관련 기술 조사")]    ← 동시 호출
+```
+
+GOOD - 독립적인 리뷰를 한 턴에서 동시 호출:
+```
+코드 변경이 완료되었으므로 병렬 리뷰를 시작합니다.
+
+[Task(reviewer, "코드 품질 리뷰")]    ← 동시 호출
+[Task(security, "보안 리뷰")]         ← 동시 호출
+```
+
+GOOD - 독립적인 태스크 생성을 한 턴에서 동시 호출:
+```
+팀 태스크를 생성합니다.
+
+[TaskCreate({subject: "API 엔드포인트 구현", ...})]    ← 동시 호출
+[TaskCreate({subject: "DB 스키마 마이그레이션", ...})]   ← 동시 호출
+[TaskCreate({subject: "테스트 작성", ...})]              ← 동시 호출
+```
+
+BAD - 독립적인 호출을 불필요하게 순차 실행:
+```
+먼저 코드베이스를 탐색하겠습니다.
+[Task(navigator, "코드베이스 구조 파악")]
+--- 결과 수신 ---
+이제 기술 조사를 시작합니다.          ← 탐색 결과를 실제로 사용하지 않음
+[Skill("deepresearch", "관련 기술 조사")]
+```
+
+**자기 검증**: 매 Skill/Task 호출 전에 확인:
+- 이 호출이 직전 호출의 **출력 데이터**를 입력으로 필요로 하는가?
+  - YES → 순차 실행 (이전 결과 대기 후 호출)
+  - NO → 현재 턴에서 다른 독립 호출과 함께 동시 수행
+
+**반드시 순차 실행하는 경우**:
+- `code` → `test`: 코드 변경 후 해당 코드에 대한 테스트
+- `code` → `code`: 앞의 변경 결과를 참조하는 후속 변경
+- `test` 실패 → `code` fix: 실패 원인을 바탕으로 수정
+- `blueprint` → `code`: 설계 결과를 바탕으로 구현
+- 모든 변경 → `commit`: 변경 완료 후 커밋
 
 ## Verification Rules
 
