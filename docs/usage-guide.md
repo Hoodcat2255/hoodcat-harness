@@ -16,6 +16,12 @@ harness install ~/Projects/my-project
 
 # 또는 경로 지정 + 자동 확인
 harness install ~/Projects/my-project -f
+
+# 기존 설치 업데이트
+harness update ~/Projects/my-project
+
+# 텔레그램 알림 설정
+harness config
 ```
 
 필요한 것:
@@ -24,6 +30,16 @@ harness install ~/Projects/my-project -f
 - `jq` (품질 게이트 훅에 필요, 미설치 시 graceful skip)
 
 설치 시 CLAUDE.md가 없으면 자동 생성되며, 최상단에 `@.claude/harness.md` import가 주입됩니다.
+
+설치되는 파일:
+- `.claude/agents/` - 에이전트 정의 8개
+- `.claude/skills/` - 스킬 정의 11개
+- `.claude/hooks/` - 훅 스크립트 12개
+- `.claude/rules/` - 안티패턴 규칙
+- `.claude/harness.md` - 공통 지침
+- `.claude/settings.json` - 훅/상태표시줄 설정
+- `.claude/statusline.sh` - 상태표시줄
+- `.claude/shared-context-config.json` - 공유 컨텍스트 설정
 
 ## 아키텍처
 
@@ -42,6 +58,20 @@ Main Agent의 디스패치 규칙:
 2. **그 외 모든 요청** → Orchestrator에 위임
 
 이 규칙에 예외는 없습니다. 버그 수정, 기능 구현, 코드 설명, 리팩토링 등 슬래시 커맨드가 아닌 모든 요청은 Orchestrator가 처리합니다.
+
+### 위임 강제 시스템 (3층 방어)
+
+Main Agent가 직접 코드를 수정하거나 분석하는 것을 방지하는 다층 방어 시스템입니다.
+
+| 층 | 메커니즘 | 역할 |
+|----|---------|------|
+| 1층 | `harness.md` 프롬프트 규칙 | 자기 검증 체크리스트, FORBIDDEN/ALLOWED 행위 목록 |
+| 2층 | `enforce-delegation.sh` (PreToolUse 훅) | Main Agent의 Edit/Write 도구 사용을 물리적으로 차단 |
+| 3층 | `orchestrator.md` 자체 규칙 | Orchestrator가 직접 코드 수정 대신 Skill("code") 위임 |
+
+- 서브에이전트(transcript_path에 `/subagents/` 포함)는 훅 차단 대상에서 제외
+- Write의 경우 `.md` 파일은 허용, 소스코드/설정 파일 확장자는 차단
+- 차단 시 stderr로 위임 안내 메시지가 Claude에게 전달됨
 
 ### Orchestrator의 역할
 
@@ -178,6 +208,47 @@ Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제�
 리팩토링: Task(navigator) → Skill("code") → Skill("test", 전체) → Task(architect) → Skill("commit")
 ```
 
+## 훅 시스템
+
+12개의 훅 스크립트가 자동화된 품질 관리와 에이전트 간 협업을 지원합니다.
+
+### 위임 강제
+
+| 훅 | 이벤트 | 용도 |
+|----|--------|------|
+| `enforce-delegation.sh` | PreToolUse (Edit\|Write) | Main Agent의 직접 코드 수정 차단 |
+
+### 품질 게이트
+
+| 훅 | 이벤트 | 용도 |
+|----|--------|------|
+| `verify-build-test.sh` | (유틸리티) | 프로젝트별 빌드/테스트 검증 |
+| `task-quality-gate.sh` | TaskCompleted | 에이전트팀 태스크 완료 시 빌드/테스트 자동 검증 |
+| `teammate-idle-check.sh` | TeammateIdle | 미완료 태스크가 있는 팀원이 유휴 시 작업 재개 유도 |
+
+### 공유 컨텍스트
+
+| 훅 | 이벤트 | 용도 |
+|----|--------|------|
+| `shared-context-inject.sh` | SubagentStart | 이전 에이전트 작업 요약을 additionalContext로 주입 |
+| `shared-context-collect.sh` | SubagentStop | 에이전트 작업 결과 수집 (자발적 기록 없으면 자동 추출) |
+| `shared-context-cleanup.sh` | SessionStart | TTL 만료 세션 정리 |
+| `shared-context-finalize.sh` | SessionEnd | 세션 메트릭 기록 |
+
+### 알림/모니터링
+
+| 훅 | 이벤트 | 용도 |
+|----|--------|------|
+| `notify-telegram.sh` | SubagentStop | Orchestrator 완료 시 텔레그램으로 결과 알림 |
+| `subagent-monitor.sh` | SubagentStop | 서브에이전트 종료 로깅 |
+
+### 테스트
+
+| 훅 | 용도 |
+|----|------|
+| `test-shared-context.sh` | 공유 컨텍스트 시스템 통합 테스트 |
+| `test-notify-telegram.sh` | 텔레그램 알림 훅 테스트 |
+
 ## 공유 컨텍스트 시스템
 
 서브에이전트 간 작업 결과를 공유하는 파일 기반 시스템입니다.
@@ -235,17 +306,57 @@ git worktree remove <path>  # 특정 worktree 제거
 - 에이전트의 텍스트 보고("통과했습니다")를 신뢰하지 않음
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
-## 품질 게이트 훅
-
-- `task-quality-gate.sh` (TaskCompleted): 에이전트팀 태스크 완료 시 빌드/테스트 자동 검증
-- `teammate-idle-check.sh` (TeammateIdle): 미완료 태스크가 있는 팀원이 유휴 상태가 되면 작업 재개 유도
-
 ## 에이전트팀 활용 기준
 
 - 독립 태스크 3개 이상 → 에이전트팀 병렬 개발
 - 독립 태스크 2개 이하 → 순차 개발
 - `/team-review` → 대규모/고위험 변경에만 사용. 단순 변경은 `Task(reviewer)`
 - `/qa-swarm` → 테스트 스위트가 다양한 프로젝트에만 사용. 소규모는 `/test`
+
+## 텔레그램 알림
+
+Orchestrator 작업 완료 시 텔레그램으로 결과를 자동 알림합니다.
+
+### 설정
+
+```bash
+# 대화형 설정
+harness config
+
+# 또는 직접 편집
+# ~/.claude/.env (전역)
+HARNESS_TG_BOT_TOKEN=your-bot-token
+HARNESS_TG_CHAT_ID=your-chat-id
+```
+
+- 환경변수가 설정된 경우에만 동작
+- 전역 설정(`~/.claude/.env`)과 프로젝트별 설정(`.env`)을 지원
+- `.claude/.env.example` 템플릿 참고
+
+### 알림 내용
+
+- 작업 유형 (Orchestrator, researcher 등)
+- 소요 시간
+- 변경된 파일 목록
+- 작업 요약
+
+## 파이프라인 시스템 (설계 완료, 미구현)
+
+Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프라인 시스템이 설계되었습니다.
+
+### 현재 상태
+
+- JSON 스키마 설계 완료 (`docs/research-pipeline-json-schema-20260216.md`)
+- 비주얼 에디터 별도 프로젝트 (`~/Projects/pipeline-editor/`, React + React Flow)
+- 모바일 UX 설계 완료 (`docs/research-mobile-node-editor-ux-20260216.md`)
+- Orchestrator 통합은 미구현
+
+### 개념
+
+- 노드 8종: start, end, skill, agent, fork, join, condition, loop
+- 병렬 실행: Fork/Join (wait_policy: all/any/n_of)
+- 루프 3단계: retry(노드), maxTraversals(엣지), Loop 노드(서브그래프)
+- Orchestrator는 파이프라인을 Read-only로 실행, 생성/수정은 사용자만 수행
 
 ## 사용 예시
 
@@ -312,16 +423,19 @@ git worktree remove <path>  # 특정 worktree 제거
 │   ├── scaffold/SKILL.md            # 스킬/에이전트 생성 (agent: coder)
 │   ├── team-review/SKILL.md         # 멀티렌즈 리뷰 (에이전트팀)
 │   └── qa-swarm/SKILL.md            # 병렬 QA (에이전트팀)
-├── hooks/                           # 훅 스크립트 (9개)
+├── hooks/                           # 훅 스크립트 (12개)
+│   ├── enforce-delegation.sh        # 위임 강제 (PreToolUse)
 │   ├── verify-build-test.sh         # 빌드/테스트 검증 유틸
 │   ├── task-quality-gate.sh         # 태스크 완료 검증
 │   ├── teammate-idle-check.sh       # 팀원 유휴 검사
 │   ├── subagent-monitor.sh          # 서브에이전트 종료 로깅
+│   ├── notify-telegram.sh           # 텔레그램 알림
 │   ├── shared-context-inject.sh     # 컨텍스트 주입
 │   ├── shared-context-collect.sh    # 컨텍스트 수집
 │   ├── shared-context-cleanup.sh    # 세션 정리
 │   ├── shared-context-finalize.sh   # 세션 메트릭
-│   └── test-shared-context.sh       # 테스트용
+│   ├── test-shared-context.sh       # 공유 컨텍스트 테스트
+│   └── test-notify-telegram.sh      # 텔레그램 알림 테스트
 ├── rules/                           # 안티패턴 규칙
 │   ├── antipatterns-general.md
 │   ├── antipatterns-python.md
@@ -335,6 +449,15 @@ git worktree remove <path>  # 특정 worktree 제거
 
 ## 버전 히스토리
 
+### v5 (2026-02-15~16) - 위임 강제 + 파이프라인 설계
+- 위임 강제 시스템 3층 방어 구현 (프롬프트 + PreToolUse 훅 + Orchestrator 규칙)
+- `enforce-delegation.sh` 훅 추가 (Main Agent Edit/Write 물리적 차단)
+- Orchestrator 위임율 개선 (Edit 도구 제거, FORBIDDEN/REQUIRED 규칙, 리뷰 의무화 기준)
+- 파이프라인 JSON 스키마 설계 완료 (노드 8종, Fork/Join, Loop)
+- 파이프라인 비주얼 에디터 설계 (React Flow 기반, 모바일 UX)
+- `harness.sh`에 `shared-context-config.json` 설치/업데이트 추가
+- 리서치 문서 6건 추가
+
 ### v4 (2026-02-14) - 2-tier Orchestrator-Driven 전환
 - workflow 에이전트를 orchestrator로 교체
 - 워크플로우 스킬 5개(bugfix/hotfix/implement/improve/new-project) + fix 삭제
@@ -342,6 +465,7 @@ git worktree remove <path>  # 특정 worktree 제거
 - Main Agent를 순수 디스패처로 전환 (슬래시 커맨드 직접 호출 + 나머지 Orchestrator 위임)
 - 공유 컨텍스트 시스템 도입 (훅 5개 추가)
 - 에이전트 5개 → 8개 (orchestrator, coder, committer, researcher 추가)
+- 텔레그램 알림 훅 추가
 
 ### v3 (2026-02-12) - 전체 Fork 전환
 - 모든 스킬에 `context: fork` 적용

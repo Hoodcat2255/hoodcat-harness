@@ -266,6 +266,22 @@ copy_harness_md() {
     fi
 }
 
+copy_shared_context_config() {
+    local target="$1"
+    local src="${SOURCE_CLAUDE_DIR}/shared-context-config.json"
+    local dst="${target}/.claude/shared-context-config.json"
+
+    if [[ ! -f "$src" ]]; then
+        log_debug "소스 shared-context-config.json이 없습니다."
+        return
+    fi
+
+    if dry_run_guard "shared-context-config.json 복사"; then
+        cp "$src" "$dst"
+        log_debug "shared-context-config.json 복사 완료"
+    fi
+}
+
 check_global_env() {
     local global_env="$HOME/.claude/.env"
 
@@ -823,6 +839,10 @@ cmd_install() {
     log_info "공통 지침 파일 설치 중..."
     copy_harness_md "$target"
 
+    # 3.5. shared-context-config.json 복사
+    log_info "공유 컨텍스트 설정 파일 설치 중..."
+    copy_shared_context_config "$target"
+
     # 4. 런타임 디렉토리 생성
     log_info "런타임 디렉토리 생성 중..."
     init_runtime_dirs "$target"
@@ -864,6 +884,7 @@ cmd_install() {
     done
     echo "  .claude/harness.md"
     echo "  .claude/statusline.sh"
+    echo "  .claude/shared-context-config.json"
     echo "  .claude/settings.json"
     [[ -f "$HOME/.claude/.env" ]] && echo "  ~/.claude/.env (전역)"
     echo ""
@@ -931,7 +952,7 @@ cmd_update() {
     done
 
     # standalone 파일 변경 감지
-    local standalone_files=(harness.md statusline.sh settings.json)
+    local standalone_files=(harness.md statusline.sh settings.json shared-context-config.json)
     for file in "${standalone_files[@]}"; do
         local src="${SOURCE_CLAUDE_DIR}/${file}"
         local dst="${target}/.claude/${file}"
@@ -970,6 +991,10 @@ cmd_update() {
     # 3. harness.md 업데이트
     log_info "공통 지침 파일 업데이트 중..."
     copy_harness_md "$target"
+
+    # 3.5. shared-context-config.json 복사
+    log_info "공유 컨텍스트 설정 파일 업데이트 중..."
+    copy_shared_context_config "$target"
 
     # 4. settings.json 업데이트
     log_info "설정 파일 확인 중..."
