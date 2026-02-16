@@ -21,7 +21,7 @@ elif [[ -e "$LINK_PATH" ]]; then
     exit 1
 fi
 
-# --- 탭 완성 ---
+# --- 탭 완성 (파일 기반 - 레거시) ---
 
 if [[ -f "$BASH_COMP" ]]; then
     rm "$BASH_COMP"
@@ -34,6 +34,34 @@ if [[ -f "$ZSH_COMP" ]]; then
     echo "zsh 완성 제거: $ZSH_COMP"
     removed=true
 fi
+
+# --- 탭 완성 (eval 기반) ---
+
+marker="# hoodcat-harness completion"
+for rc_file in "$HOME/.bashrc" "$HOME/.zshrc"; do
+    if [[ -f "$rc_file" ]] && grep -qF "$marker" "$rc_file" 2>/dev/null; then
+        tmp="$(mktemp)"
+        skip_next=false
+        while IFS= read -r line; do
+            if [[ "$line" == "$marker" ]]; then
+                skip_next=true
+                continue
+            fi
+            if $skip_next; then
+                skip_next=false
+                if [[ "$line" == eval* ]]; then
+                    continue
+                fi
+                echo "$line" >> "$tmp"
+                continue
+            fi
+            echo "$line" >> "$tmp"
+        done < "$rc_file"
+        mv "$tmp" "$rc_file"
+        echo "셸 자동완성 제거: ${rc_file}"
+        removed=true
+    fi
+done
 
 if ! $removed; then
     echo "설치되어 있지 않습니다."

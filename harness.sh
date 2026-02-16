@@ -383,106 +383,6 @@ check_global_env() {
     echo ""
 }
 
-install_completion() {
-    local shell_name shell_rc eval_line marker
-
-    # 비대화형 환경이면 스킵
-    if [[ ! -t 0 ]]; then
-        log_debug "비대화형 환경: 셸 자동완성 설치를 건너뜁니다."
-        return
-    fi
-
-    # 셸 감지
-    shell_name="$(basename "${SHELL:-}")"
-    case "$shell_name" in
-        bash) shell_rc="$HOME/.bashrc" ;;
-        zsh)  shell_rc="$HOME/.zshrc" ;;
-        *)
-            log_warn "지원하지 않는 셸입니다 (${shell_name}). 자동완성을 수동으로 설치하세요."
-            return
-            ;;
-    esac
-
-    marker="# hoodcat-harness completion"
-    eval_line="eval \"\$(${SCRIPT_DIR}/harness.sh completion ${shell_name})\""
-
-    # 이미 설치되어 있으면 스킵 (마커 주석으로 중복 검사)
-    if [[ -f "$shell_rc" ]] && grep -qF "$marker" "$shell_rc" 2>/dev/null; then
-        log_info "셸 자동완성: 이미 ${shell_rc}에 설치되어 있습니다."
-        return
-    fi
-
-    # FORCE 모드가 아니면 확인
-    if ! confirm "셸 자동완성을 ${shell_rc}에 추가하시겠습니까?"; then
-        log_info "셸 자동완성 설치를 건너뜁니다."
-        return
-    fi
-
-    if dry_run_guard "셸 자동완성을 ${shell_rc}에 추가"; then
-        # 파일 끝에 개행이 없으면 추가
-        if [[ -f "$shell_rc" && -s "$shell_rc" ]] && [[ "$(tail -c 1 "$shell_rc" | wc -l)" -eq 0 ]]; then
-            echo "" >> "$shell_rc"
-        fi
-        {
-            echo ""
-            echo "$marker"
-            echo "$eval_line"
-        } >> "$shell_rc"
-        log_info "셸 자동완성을 ${shell_rc}에 추가했습니다."
-        log_info "적용하려면: source ${shell_rc}"
-    fi
-}
-
-uninstall_completion() {
-    local shell_name shell_rc marker
-
-    # 셸 감지
-    shell_name="$(basename "${SHELL:-}")"
-    case "$shell_name" in
-        bash) shell_rc="$HOME/.bashrc" ;;
-        zsh)  shell_rc="$HOME/.zshrc" ;;
-        *)    return ;;
-    esac
-
-    marker="# hoodcat-harness completion"
-
-    # 마커가 없으면 스킵
-    if [[ ! -f "$shell_rc" ]] || ! grep -qF "$marker" "$shell_rc" 2>/dev/null; then
-        log_debug "셸 자동완성: ${shell_rc}에 harness completion이 없습니다."
-        return
-    fi
-
-    if ! confirm "셸 자동완성을 ${shell_rc}에서 제거하시겠습니까?"; then
-        log_info "셸 자동완성 제거를 건너뜁니다."
-        return
-    fi
-
-    if dry_run_guard "셸 자동완성을 ${shell_rc}에서 제거"; then
-        local tmp
-        tmp="$(mktemp)"
-        local skip_next=false
-        while IFS= read -r line; do
-            if [[ "$line" == "$marker" ]]; then
-                skip_next=true
-                continue
-            fi
-            if $skip_next; then
-                skip_next=false
-                # eval 라인이면 스킵, 아니면 보존
-                if [[ "$line" == eval* ]]; then
-                    continue
-                fi
-                # eval 라인이 아니면 현재 줄을 그대로 출력
-                echo "$line" >> "$tmp"
-                continue
-            fi
-            echo "$line" >> "$tmp"
-        done < "$shell_rc"
-        mv "$tmp" "$shell_rc"
-        log_info "셸 자동완성을 ${shell_rc}에서 제거했습니다."
-    fi
-}
-
 inject_harness_import() {
     local target="$1"
     local claude_md="${target}/CLAUDE.md"
@@ -967,10 +867,6 @@ cmd_install() {
     log_info "메타 정보 기록 중..."
     write_harness_meta "$target" "install"
 
-    # 9.5. 셸 자동완성 설치
-    log_info "셸 자동완성 설치 중..."
-    install_completion
-
     # 10. git 설정
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
@@ -1125,10 +1021,6 @@ cmd_update() {
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
 
-    # 9.5. 셸 자동완성 확인
-    log_info "셸 자동완성 확인 중..."
-    install_completion
-
     echo ""
     log_info "=== 업데이트 완료 (${installed_commit} → ${current_commit}) ==="
 }
@@ -1255,10 +1147,6 @@ cmd_delete() {
             log_info ".claude/ 디렉토리에 사용자 파일이 남아 있어 보존합니다."
         fi
     fi
-
-    # 7. 셸 자동완성 제거
-    log_info "셸 자동완성 정리 중..."
-    uninstall_completion
 
     echo ""
     log_info "=== 삭제 완료 ==="

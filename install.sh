@@ -39,43 +39,55 @@ else
     echo "심링크 생성: $LINK_PATH → $HARNESS_SH"
 fi
 
-# --- 탭 완성 ---
+# --- 탭 완성 (eval 방식: harness.sh completion 서브커맨드 활용) ---
 
-install_bash_completion() {
-    local comp_dir="${HOME}/.local/share/bash-completion/completions"
-    local src="${SCRIPT_DIR}/completions/harness.bash"
-    [[ -f "$src" ]] || return 0
-    mkdir -p "$comp_dir"
-    cp "$src" "${comp_dir}/harness"
-    echo "bash 완성 설치: ${comp_dir}/harness"
-}
+install_completion() {
+    local shell_name shell_rc eval_line marker
 
-install_zsh_completion() {
-    local src="${SCRIPT_DIR}/completions/harness.zsh"
-    [[ -f "$src" ]] || return 0
-
-    # fpath에서 사용자 completions 디렉토리 탐색
-    local comp_dir="${HOME}/.zfunc"
-    mkdir -p "$comp_dir"
-    cp "$src" "${comp_dir}/_harness"
-    echo "zsh 완성 설치: ${comp_dir}/_harness"
-
-    # fpath 안내
-    if ! grep -q '\.zfunc' "${HOME}/.zshrc" 2>/dev/null; then
-        echo ""
-        echo "[참고] ~/.zshrc에 다음을 추가하세요:"
-        echo "  fpath=(~/.zfunc \$fpath)"
-        echo "  autoload -Uz compinit && compinit"
+    # 비대화형 환경이면 스킵
+    if [[ ! -t 0 ]]; then
+        return
     fi
+
+    # 셸 감지
+    shell_name="$(basename "${SHELL:-}")"
+    case "$shell_name" in
+        bash) shell_rc="$HOME/.bashrc" ;;
+        zsh)  shell_rc="$HOME/.zshrc" ;;
+        *)
+            echo "[WARN] 지원하지 않는 셸입니다 (${shell_name}). 자동완성을 수동으로 설치하세요."
+            return
+            ;;
+    esac
+
+    marker="# hoodcat-harness completion"
+    eval_line="eval \"\$(${HARNESS_SH} completion ${shell_name})\""
+
+    # 이미 설치되어 있으면 스킵
+    if [[ -f "$shell_rc" ]] && grep -qF "$marker" "$shell_rc" 2>/dev/null; then
+        echo "셸 자동완성: 이미 ${shell_rc}에 설치되어 있습니다."
+        return
+    fi
+
+    # 확인
+    echo -n "셸 자동완성을 ${shell_rc}에 추가하시겠습니까? [Y/n] "
+    read -r answer
+    [[ "$answer" =~ ^[Nn]$ ]] && return
+
+    # 파일 끝에 개행이 없으면 추가
+    if [[ -f "$shell_rc" && -s "$shell_rc" ]] && [[ "$(tail -c 1 "$shell_rc" | wc -l)" -eq 0 ]]; then
+        echo "" >> "$shell_rc"
+    fi
+    {
+        echo ""
+        echo "$marker"
+        echo "$eval_line"
+    } >> "$shell_rc"
+    echo "셸 자동완성을 ${shell_rc}에 추가했습니다."
+    echo "적용하려면: source ${shell_rc}"
 }
 
-# 현재 셸에 맞는 completion 설치
-current_shell="$(basename "${SHELL:-bash}")"
-case "$current_shell" in
-    zsh)  install_zsh_completion ;;
-    bash) install_bash_completion ;;
-    *)    install_bash_completion ;;  # 기본은 bash
-esac
+install_completion
 
 # --- PATH 확인 ---
 
