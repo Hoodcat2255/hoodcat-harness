@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 디렉토리 구조
 
-- `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일, 11개)
+- `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일, 12개)
 - `.claude/agents/` - 커스텀 에이전트 정의 (8개)
 - `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 위임 강제, 텔레그램 알림 등)
 - `.claude/rules/` - 언어별 안티패턴 규칙 (Python, TypeScript, General)
@@ -35,7 +35,7 @@ Main Agent가 직접 코드를 수정하지 못하도록 다층 방어를 적용
 2. **PreToolUse 훅** (`enforce-delegation.sh`): Main Agent의 Edit/Write 도구 사용을 물리적으로 차단. 서브에이전트는 허용.
 3. **Orchestrator 자체 규칙**: Orchestrator가 직접 코드를 쓰지 않고 워커 스킬에 위임
 
-## 주요 스킬 (11개)
+## 주요 스킬 (12개)
 
 ### code
 코드 작성/수정/진단/패치 통합 스킬입니다.
@@ -87,6 +87,12 @@ Main Agent가 직접 코드를 수정하지 못하도록 다층 방어를 적용
 병렬 QA 스웜 스킬입니다.
 - 호출: `/qa-swarm [프로젝트 경로]`
 - 비용: 단일 테스트 대비 최대 4배 토큰
+
+### sync-docs
+harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬입니다.
+- 호출: `/sync-docs [--check-only]`
+- `.claude/` 하위 스킬/에이전트/훅 변경을 감지하여 CLAUDE.md, harness.md, orchestrator.md를 업데이트
+- Orchestrator가 scaffold 또는 harness 파일 변경 후 자동 호출
 
 ## 훅
 

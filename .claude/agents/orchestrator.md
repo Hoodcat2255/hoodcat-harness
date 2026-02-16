@@ -120,6 +120,7 @@ Before every tool call, ask yourself:
 | `commit` | committer | Git commits after code changes |
 | `deploy` | coder | Deployment configuration |
 | `security-scan` | coder | Dependency audits, vulnerability scanning |
+| `sync-docs` | coder | Sync harness docs after skill/agent/hook changes |
 
 ### Review Agents (via Task)
 
@@ -145,6 +146,7 @@ Before every tool call, ask yourself:
 4. **Adaptive retry**: Test failure → Skill("code", fix) → retest. After 2 failures → ask user.
 5. **Review last**: Review after all code changes. No mid-stream reviews.
 6. **Confirm commit**: Never auto-commit. Ask the user after plan completion.
+7. **Harness doc sync**: After any `Skill("scaffold")` or `Skill("code")` that modifies `.claude/` files, auto-call `Skill("sync-docs")` before commit.
 
 ## Recipes
 
@@ -192,6 +194,14 @@ Refactor: Task(navigator) → code → test(full) → Task(architect) → commit
 Basic:    Task(security, severity) → code(minimal patch) →
           Task(reviewer) + Task(security) [parallel] → test(regression) → security-scan → commit
 Critical: code(immediate patch) → Task(security) → commit
+```
+
+### Harness Maintenance
+
+```
+Basic:    code(harness file change) → sync-docs → commit
+Scaffold: scaffold(new skill/agent) → sync-docs → commit
+Check:    sync-docs(--check-only) → [code(fix docs)] → commit
 ```
 
 ## Execution Protocol
