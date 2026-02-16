@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Unit tests for notify-telegram.sh utility functions
 # Tests: extract_section, extract_filenames, count_lines, has_issues, escape_html,
-#        get_agent_display_name, get_agent_emoji
+# Tests (cont): get_agent_display_name, get_agent_emoji, strip_markdown
 # Also tests full structured message composition, fallback message,
 # and non-orchestrator agent message composition.
 #
@@ -124,6 +124,9 @@ extract_functions() {
 
   # get_agent_emoji
   eval "$(sed -n '/^get_agent_emoji()/,/^}/p' "$src")"
+
+  # strip_markdown
+  eval "$(sed -n '/^strip_markdown()/,/^}/p' "$src")"
 }
 
 extract_functions
@@ -640,6 +643,82 @@ else
   echo -e "  ${RED}FAIL${NC}: Non-orch message length ($MSG_LEN) exceeds Telegram limit (4096)"
   FAIL=$((FAIL + 1))
 fi
+
+
+# =====================================================================
+# Test 10: strip_markdown
+# =====================================================================
+echo ""
+echo "[Test 10] strip_markdown"
+
+# Helper: backtick character (to avoid shell interpretation)
+BT=$(printf "\x60")
+
+# 10a. H2 header marker removal
+STRIP_H2=$(strip_markdown "## 헤더")
+assert_eq "10a. H2 header: '## 헤더' -> '헤더'" "헤더" "$STRIP_H2"
+
+# 10b. H3 header marker removal
+STRIP_H3=$(strip_markdown "### 서브헤더")
+assert_eq "10b. H3 header: '### 서브헤더' -> '서브헤더'" "서브헤더" "$STRIP_H3"
+
+# 10c. Bold marker removal
+STRIP_BOLD=$(strip_markdown "**bold text**")
+assert_eq "10c. Bold: '**bold text**' -> 'bold text'" "bold text" "$STRIP_BOLD"
+
+# 10d. Italic marker removal
+STRIP_ITALIC=$(strip_markdown "*italic text*")
+assert_eq "10d. Italic: '*italic text*' -> 'italic text'" "italic text" "$STRIP_ITALIC"
+
+# 10e. Inline code backtick removal
+INPUT_INLINE="${BT}inline code${BT}"
+STRIP_INLINE=$(strip_markdown "$INPUT_INLINE")
+assert_eq "10e. Inline code: backticks removed" "inline code" "$STRIP_INLINE"
+
+# 10f. Code block fence line removal
+INPUT_FENCE=$(printf "before\n${BT}${BT}${BT}\ncode here\n${BT}${BT}${BT}\nafter")
+STRIP_FENCE=$(strip_markdown "$INPUT_FENCE")
+assert_contains "10f. Code fence: 'before' preserved" "$STRIP_FENCE" "before"
+assert_contains "10f. Code fence: 'code here' preserved" "$STRIP_FENCE" "code here"
+assert_contains "10f. Code fence: 'after' preserved" "$STRIP_FENCE" "after"
+assert_not_contains "10f. Code fence: fence lines removed" "$STRIP_FENCE" "${BT}${BT}${BT}"
+
+# 10g. Blockquote marker removal
+STRIP_QUOTE=$(strip_markdown "> 인용문")
+assert_eq "10g. Blockquote: '> 인용문' -> '인용문'" "인용문" "$STRIP_QUOTE"
+
+# 10h. Checkbox checked conversion
+STRIP_CHECKED=$(strip_markdown "- [x] 완료된 항목")
+assert_eq "10h. Checkbox checked: '- [x] 완료된 항목' -> '[완료] 완료된 항목'" "[완료] 완료된 항목" "$STRIP_CHECKED"
+
+# 10i. Checkbox unchecked conversion
+STRIP_UNCHECKED=$(strip_markdown "- [ ] 미완료 항목")
+assert_eq "10i. Checkbox unchecked: '- [ ] 미완료 항목' -> '[미완] 미완료 항목'" "[미완] 미완료 항목" "$STRIP_UNCHECKED"
+
+# 10j. Complex mixed markdown document
+INPUT_COMPLEX=$(printf "## 제목\n**강조** 텍스트\n${BT}코드${BT}\n> 인용\n- [x] 완료\n- [ ] 미완")
+STRIP_COMPLEX=$(strip_markdown "$INPUT_COMPLEX")
+assert_contains "10j. Complex: header stripped" "$STRIP_COMPLEX" "제목"
+assert_not_contains "10j. Complex: no ## marker" "$STRIP_COMPLEX" "## "
+assert_contains "10j. Complex: bold stripped" "$STRIP_COMPLEX" "강조 텍스트"
+assert_not_contains "10j. Complex: no ** marker" "$STRIP_COMPLEX" "**"
+assert_contains "10j. Complex: inline code stripped" "$STRIP_COMPLEX" "코드"
+assert_contains "10j. Complex: blockquote stripped" "$STRIP_COMPLEX" "인용"
+assert_not_contains "10j. Complex: no > marker" "$STRIP_COMPLEX" "> 인용"
+assert_contains "10j. Complex: checkbox checked converted" "$STRIP_COMPLEX" "[완료] 완료"
+assert_contains "10j. Complex: checkbox unchecked converted" "$STRIP_COMPLEX" "[미완] 미완"
+
+# 10k. Plain text without markdown passes through unchanged
+STRIP_PLAIN=$(strip_markdown "일반 텍스트입니다")
+assert_eq "10k. Plain text unchanged" "일반 텍스트입니다" "$STRIP_PLAIN"
+
+# 10l. strip_markdown + escape_html pipeline (order guarantee)
+PIPELINE_INPUT="**bold** & <tag>"
+PIPELINE_STRIPPED=$(strip_markdown "$PIPELINE_INPUT")
+PIPELINE_RESULT=$(escape_html "$PIPELINE_STRIPPED")
+assert_eq "10l. Pipeline: strip_markdown then escape_html" "bold &amp; &lt;tag&gt;" "$PIPELINE_RESULT"
+assert_not_contains "10l. Pipeline: no raw ** in output" "$PIPELINE_RESULT" "**"
+assert_not_contains "10l. Pipeline: no raw < in output" "$PIPELINE_RESULT" "<tag>"
 
 # =====================================================================
 # Results

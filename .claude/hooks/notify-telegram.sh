@@ -120,6 +120,27 @@ escape_html() {
     -e 's/>/\&gt;/g'
 }
 
+# 마크다운 문법 제거 (텔레그램 HTML 모드에서 원시 마크다운이 노출되지 않도록)
+# escape_html 이전에 적용해야 한다.
+strip_markdown() {
+  local text="$1"
+  echo "$text" | sed \
+    -e 's/^###### //' \
+    -e 's/^##### //' \
+    -e 's/^#### //' \
+    -e 's/^### //' \
+    -e 's/^## //' \
+    -e 's/^# //' \
+    -e 's/\*\*\([^*]*\)\*\*/\1/g' \
+    -e 's/\*\([^*]*\)\*/\1/g' \
+    -e '/^```/d' \
+    -e 's/`\([^`]*\)`/\1/g' \
+    -e 's/^> //' \
+    -e 's/^- \[x\] /[완료] /' \
+    -e 's/^- \[ \] /[미완] /' \
+    -e '/^$/{ N; s/\n$//; }'
+}
+
 # 공유 컨텍스트 파일에서 마크다운 섹션 추출
 # 사용법: extract_section "$content" "Plan"
 # ### Plan 헤더 이후, 다음 ### 또는 ## 헤더 전까지의 내용을 반환
@@ -328,7 +349,7 @@ if [ "$AGENT_TYPE" = "orchestrator" ]; then
 
     if [ -f "$CONTEXT_FILE" ] && [ -s "$CONTEXT_FILE" ]; then
       FALLBACK_SUMMARY=$(head -c 500 "$CONTEXT_FILE" 2>/dev/null || echo "")
-      ESCAPED_SUMMARY=$(escape_html "$FALLBACK_SUMMARY")
+      ESCAPED_SUMMARY=$(escape_html "$(strip_markdown "$FALLBACK_SUMMARY")")
 
       MESSAGE=$'\xe2\x9c\x85'" <b>Orchestrator 완료</b> | <code>${ESCAPED_PROJECT}</code>
 
@@ -364,7 +385,7 @@ else
   # 공유 컨텍스트 파일이 존재하면 요약 추가 (최대 500자)
   if [ -f "$CONTEXT_FILE" ] && [ -s "$CONTEXT_FILE" ]; then
     CONTEXT_SUMMARY=$(head -c 500 "$CONTEXT_FILE" 2>/dev/null || echo "")
-    ESCAPED_CONTEXT=$(escape_html "$CONTEXT_SUMMARY")
+    ESCAPED_CONTEXT=$(escape_html "$(strip_markdown "$CONTEXT_SUMMARY")")
     MESSAGE="${MESSAGE}
 
 "$'\xf0\x9f\x93\x9d'" <b>요약:</b>
