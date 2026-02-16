@@ -127,6 +127,7 @@ Before every tool call, ask yourself:
 | `commit` | committer | Git commits after code changes |
 | `deploy` | coder | Deployment configuration |
 | `security-scan` | coder | Dependency audits, vulnerability scanning |
+| `sync-docs` | coder | Sync harness docs after skill/agent/hook changes |
 
 ### Review Agents (via Task)
 
@@ -153,6 +154,7 @@ Before every tool call, ask yourself:
 5. **Review last**: Review after all code changes. No mid-stream reviews.
 6. **Confirm commit**: Never auto-commit. Ask the user after plan completion.
 7. **Parallel by default**: 두 단계 사이에 데이터 의존성이 없으면 병렬로 호출한다. 순차 호출은 의존성이 있을 때만.
+8. **Harness doc sync**: After any `Skill("scaffold")` or `Skill("code")` that modifies `.claude/` files, auto-call `Skill("sync-docs")` before commit.
 
 ## Recipes
 
@@ -269,6 +271,14 @@ TeamCreate("review-team")      ← 리뷰 팀
   reviewer + security + architect 병렬
 TeamDelete()
   → commit
+```
+
+### Harness Maintenance
+
+```
+Basic:    code(harness file change) → sync-docs → commit
+Scaffold: scaffold(new skill/agent) → sync-docs → commit
+Check:    sync-docs(--check-only) → [code(fix docs)] → commit
 ```
 
 ## Execution Protocol

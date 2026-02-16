@@ -65,7 +65,7 @@ Orchestrator의 역할:
 
 Orchestrator는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나, 추가하거나, 순서를 바꾸거나, 동적으로 반복한다.
 
-### 워커 스킬 (11개)
+### 워커 스킬 (12개)
 
 모든 스킬은 `context: fork`로 격리 실행. 스킬 안에서 다른 스킬을 호출하지 않는다.
 
@@ -82,6 +82,7 @@ Orchestrator는 하드코딩된 워크플로우를 따르지 않는다. 레시�
 | `scaffold` | coder | 스킬/에이전트 생성 |
 | `team-review` | coder | 멀티렌즈 리뷰 (에이전트팀) |
 | `qa-swarm` | coder | 병렬 QA (에이전트팀) |
+| `sync-docs` | coder | harness 문서 자동 동기화 |
 
 ### 에이전트 (8개)
 
