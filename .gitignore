@@ -1,4 +1,5 @@
 .claude/log/
 .claude/shared-context/
+.claude/agent-memory/
 .claude/.env
 .env
