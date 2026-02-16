@@ -14,15 +14,42 @@ Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
 
 ### Main Agent의 역할
 
-Main Agent는 코드를 쓰지 않고, 테스트를 실행하지 않고, 직접 분석하거나 판단하지 않는다.
-**슬래시 커맨드(`/`로 시작하는 요청)만 해당 스킬로 직접 호출하고, 그 외 모든 자연어 요청은 무조건 Orchestrator에게 위임한다.**
+Main Agent는 순수 디스패처다. 코드를 쓰지 않고, 테스트를 실행하지 않고, 직접 분석하거나 판단하지 않는다.
 
 #### 디스패치 기준 (절대 규칙)
 
-1. **슬래시 커맨드** (`/test`, `/commit`, `/deepresearch`, `/scaffold` 등) → 해당 스킬 직접 호출
-2. **그 외 모든 요청** → `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임
+1. **슬래시 커맨드** (`/`로 시작하는 요청) -> 해당 스킬을 Skill()로 직접 호출
+2. **그 외 모든 요청** -> `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임
 
-이 규칙에 예외는 없다. 단순한 질문, 코드 설명 요청, 파일 탐색, 버그 수정, 기능 구현, 리팩토링 등 슬래시 커맨드가 아닌 모든 요청은 Orchestrator가 처리한다. Main Agent가 직접 코드를 읽거나, 분석하거나, 응답을 생성하지 않는다.
+이 규칙에 예외는 없다. 단순한 질문이든, 1줄 수정이든, "빠르게 확인만" 하는 것이든 상관없다.
+
+#### 자기 검증 체크리스트 (매 턴 실행)
+
+응답을 생성하기 전에 반드시 아래를 점검한다:
+
+1. **이 요청이 `/`로 시작하는 슬래시 커맨드인가?**
+   - YES -> 해당 스킬을 Skill()로 호출
+   - NO -> 반드시 `Task(orchestrator, "$USER_REQUEST")`로 위임. 예외 없음.
+2. **나는 지금 다음 도구를 직접 사용하려 하는가?**
+   - Edit, Write, Bash -> FORBIDDEN. 즉시 중단하고 위임.
+   - Read, Grep, Glob -> FORBIDDEN (파일을 읽고 직접 분석/응답하지 않는다).
+3. **나는 도구 없이 직접 코드를 설명하거나, 버그를 진단하거나, 아키텍처를 분석하려 하는가?**
+   - YES -> FORBIDDEN. 위임.
+
+#### FORBIDDEN 행위
+
+- Edit 도구 직접 사용 (PreToolUse 훅이 물리적으로 차단함)
+- Write 도구로 코드/설정 파일 수정 (PreToolUse 훅이 물리적으로 차단함)
+- Bash로 서버 상태 확인, 빌드, 테스트, 명령어 실행
+- Read/Grep/Glob로 파일을 읽고 직접 분석하여 응답
+- 도구 없이 코드 설명, 버그 진단, 아키텍처 분석
+
+#### ALLOWED 행위
+
+- 슬래시 커맨드 -> Skill() 호출
+- 자연어 요청 -> Task(orchestrator, ...) 위임
+- Orchestrator 결과를 사용자에게 전달
+- 단순 확인 질문 ("어떤 브랜치에서 작업할까요?" 등의 명확화 질문)
 
 ### Orchestrator
 
@@ -135,6 +162,13 @@ git worktree remove <path>  # 특정 worktree 제거
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
 ## 훅
+
+### 위임 강제 (Delegation Enforcement)
+
+- `.claude/hooks/enforce-delegation.sh` (PreToolUse, matcher: Edit|Write): Main Agent의 Edit/Write 도구 직접 사용을 물리적으로 차단
+- 서브에이전트(transcript_path에 /subagents/ 포함)는 허용
+- Write의 경우 .md 파일과 확장자 없는 파일은 허용, 소스 코드/설정 파일 확장자는 차단
+- 차단 시 stderr로 위임 안내 메시지가 Claude에게 전달됨
 
 ### 품질 게이트
 
