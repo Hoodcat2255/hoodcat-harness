@@ -1214,6 +1214,262 @@ cmd_status() {
     fi
 }
 
+cmd_mode() {
+    local action="$1"
+    local target="$2"
+
+    case "$action" in
+        on|off|status) ;;
+        *)
+            die "알 수 없는 mode 액션: ${action} (on, off, status 중 선택)"
+            ;;
+    esac
+
+    validate_target "$target"
+    target="$(cd "$target" && pwd)"
+
+    # harness 설치 여부 확인
+    if [[ ! -f "${target}/${META_FILE}" ]]; then
+        die "harness가 설치되어 있지 않습니다: ${target}"
+    fi
+
+    local claude_md="${target}/CLAUDE.md"
+    local settings_json="${target}/.claude/settings.json"
+    local settings_hooks_backup="${target}/.claude/settings.hooks.json"
+    local settings_full_backup="${target}/.claude/settings.json.harness"
+    local meta_path="${target}/${META_FILE}"
+    local import_line="@.claude/harness.md"
+    local disabled_line="# @.claude/harness.md  # harness-mode: disabled"
+
+    # 현재 모드 판별
+    local current_mode="on"
+    if [[ -f "$meta_path" ]]; then
+        local meta_mode
+        meta_mode="$(grep -o '"mode": *"[^"]*"' "$meta_path" 2>/dev/null | sed 's/.*: *"//;s/"$//' || true)"
+        if [[ "$meta_mode" == "off" ]]; then
+            current_mode="off"
+        fi
+    fi
+
+    case "$action" in
+        status)
+            echo ""
+            log_info "=== harness 모드 상태 ==="
+            log_info "대상: ${target}"
+            echo ""
+
+            # 모드 표시
+            if [[ "$current_mode" == "on" ]]; then
+                echo -e "모드: ${GREEN}on${NC} (harness 활성화)"
+            else
+                echo -e "모드: ${YELLOW}off${NC} (harness 비활성화)"
+            fi
+
+            # CLAUDE.md import 상태
+            if [[ -f "$claude_md" ]]; then
+                if grep -qF "$disabled_line" "$claude_md" 2>/dev/null; then
+                    echo -e "CLAUDE.md import: ${YELLOW}비활성화${NC}"
+                elif grep -qF "$import_line" "$claude_md" 2>/dev/null; then
+                    echo -e "CLAUDE.md import: ${GREEN}활성화${NC}"
+                else
+                    echo -e "CLAUDE.md import: ${RED}없음${NC}"
+                fi
+            else
+                echo -e "CLAUDE.md: ${RED}파일 없음${NC}"
+            fi
+
+            # settings.json hooks 상태
+            if [[ -f "$settings_json" ]]; then
+                if command -v jq &>/dev/null; then
+                    if jq -e '.hooks' "$settings_json" &>/dev/null; then
+                        echo -e "settings.json hooks: ${GREEN}활성화${NC}"
+                    else
+                        echo -e "settings.json hooks: ${YELLOW}없음${NC}"
+                    fi
+                else
+                    if grep -q '"hooks"' "$settings_json" 2>/dev/null; then
+                        echo -e "settings.json hooks: ${GREEN}있음${NC}"
+                    else
+                        echo -e "settings.json hooks: ${YELLOW}없음${NC}"
+                    fi
+                fi
+            else
+                echo -e "settings.json: ${RED}파일 없음${NC}"
+            fi
+
+            # 백업 파일 존재 여부
+            if [[ -f "$settings_hooks_backup" ]]; then
+                echo -e "hooks 백업: ${BLUE}settings.hooks.json${NC}"
+            fi
+            if [[ -f "$settings_full_backup" ]]; then
+                echo -e "settings 백업: ${BLUE}settings.json.harness${NC}"
+            fi
+            echo ""
+            return 0
+            ;;
+
+        off)
+            if [[ "$current_mode" == "off" ]]; then
+                log_info "이미 harness가 비활성화된 상태입니다."
+                return 0
+            fi
+
+            echo ""
+            log_info "=== harness 비활성화 ==="
+            log_info "대상: ${target}"
+            echo ""
+
+            # 1. CLAUDE.md @import 비활성화
+            if [[ -f "$claude_md" ]]; then
+                if grep -qF "$import_line" "$claude_md" 2>/dev/null && \
+                   ! grep -qF "$disabled_line" "$claude_md" 2>/dev/null; then
+                    if dry_run_guard "CLAUDE.md에서 harness import 비활성화"; then
+                        local tmp
+                        tmp="$(mktemp)"
+                        sed "s|^${import_line}$|${disabled_line}|" "$claude_md" > "$tmp"
+                        mv "$tmp" "$claude_md"
+                        log_info "CLAUDE.md: harness import 비활성화 완료"
+                    fi
+                else
+                    log_debug "CLAUDE.md: 이미 비활성화되었거나 import가 없습니다"
+                fi
+            fi
+
+            # 2. settings.json hooks 백업 후 제거
+            if [[ -f "$settings_json" ]]; then
+                if command -v jq &>/dev/null; then
+                    # jq로 hooks 키만 추출하여 백업
+                    if jq -e '.hooks' "$settings_json" &>/dev/null; then
+                        if dry_run_guard "settings.json에서 hooks 키 백업 및 제거"; then
+                            jq '{hooks: .hooks}' "$settings_json" > "$settings_hooks_backup"
+                            local result
+                            result="$(jq 'del(.hooks)' "$settings_json")"
+                            echo "$result" > "$settings_json"
+                            log_info "settings.json: hooks 키를 settings.hooks.json에 백업 후 제거 완료"
+                        fi
+                    else
+                        log_debug "settings.json: hooks 키가 없습니다"
+                    fi
+                else
+                    # jq 없으면 전체 settings.json을 백업
+                    if grep -q '"hooks"' "$settings_json" 2>/dev/null; then
+                        if dry_run_guard "settings.json 전체 백업 후 최소 설정 생성"; then
+                            cp "$settings_json" "$settings_full_backup"
+                            echo '{}' > "$settings_json"
+                            log_info "settings.json: settings.json.harness에 백업 후 빈 설정 생성"
+                            log_warn "jq가 있으면 hooks만 선택적으로 제거할 수 있습니다"
+                        fi
+                    else
+                        log_debug "settings.json: hooks 키가 없습니다"
+                    fi
+                fi
+            fi
+
+            # 3. .harness-meta.json에 mode: off 기록
+            if dry_run_guard ".harness-meta.json에 mode: off 기록"; then
+                if command -v jq &>/dev/null && [[ -f "$meta_path" ]]; then
+                    local result
+                    result="$(jq '. + {"mode": "off"}' "$meta_path")"
+                    echo "$result" > "$meta_path"
+                elif [[ -f "$meta_path" ]]; then
+                    # jq 없이 sed로 처리
+                    if grep -q '"mode"' "$meta_path" 2>/dev/null; then
+                        local tmp
+                        tmp="$(mktemp)"
+                        sed 's/"mode": *"[^"]*"/"mode": "off"/' "$meta_path" > "$tmp"
+                        mv "$tmp" "$meta_path"
+                    else
+                        # 마지막 } 앞에 mode 필드 삽입
+                        local tmp
+                        tmp="$(mktemp)"
+                        sed 's/}$/,\n  "mode": "off"\n}/' "$meta_path" > "$tmp"
+                        mv "$tmp" "$meta_path"
+                    fi
+                fi
+                log_info ".harness-meta.json: mode=off 기록 완료"
+            fi
+
+            echo ""
+            log_info "=== harness 비활성화 완료 ==="
+            echo ""
+            echo -e "${YELLOW}[참고]${NC} 모드 전환은 새 세션에서 반영됩니다. 실행 중인 세션에는 영향이 없습니다."
+            ;;
+
+        on)
+            if [[ "$current_mode" == "on" ]]; then
+                log_info "이미 harness가 활성화된 상태입니다."
+                return 0
+            fi
+
+            echo ""
+            log_info "=== harness 활성화 ==="
+            log_info "대상: ${target}"
+            echo ""
+
+            # 1. CLAUDE.md @import 복원
+            if [[ -f "$claude_md" ]]; then
+                if grep -qF "$disabled_line" "$claude_md" 2>/dev/null; then
+                    if dry_run_guard "CLAUDE.md에서 harness import 활성화"; then
+                        local tmp
+                        tmp="$(mktemp)"
+                        sed "s|^${disabled_line}$|${import_line}|" "$claude_md" > "$tmp"
+                        mv "$tmp" "$claude_md"
+                        log_info "CLAUDE.md: harness import 활성화 완료"
+                    fi
+                else
+                    log_debug "CLAUDE.md: 이미 활성화되었거나 disabled 마커가 없습니다"
+                fi
+            fi
+
+            # 2. settings.json hooks 복원
+            if [[ -f "$settings_hooks_backup" ]]; then
+                if command -v jq &>/dev/null && [[ -f "$settings_json" ]]; then
+                    if dry_run_guard "settings.json에 hooks 복원"; then
+                        local result
+                        result="$(jq -s '.[0] * .[1]' "$settings_json" "$settings_hooks_backup")"
+                        echo "$result" > "$settings_json"
+                        rm -f "$settings_hooks_backup"
+                        log_info "settings.json: hooks 복원 완료 (settings.hooks.json 삭제)"
+                    fi
+                elif [[ -f "$settings_json" ]]; then
+                    # jq 없으면 복원 불가 경고
+                    log_warn "jq가 없어 hooks를 자동 복원할 수 없습니다"
+                    log_warn "settings.hooks.json의 내용을 settings.json에 수동으로 머지하세요"
+                fi
+            elif [[ -f "$settings_full_backup" ]]; then
+                if dry_run_guard "settings.json 전체 복원"; then
+                    mv "$settings_full_backup" "$settings_json"
+                    log_info "settings.json: settings.json.harness에서 복원 완료"
+                fi
+            else
+                log_debug "hooks 백업 파일이 없습니다. settings.json을 그대로 유지합니다."
+            fi
+
+            # 3. .harness-meta.json에서 mode 필드 제거
+            if dry_run_guard ".harness-meta.json에서 mode 필드 제거"; then
+                if command -v jq &>/dev/null && [[ -f "$meta_path" ]]; then
+                    local result
+                    result="$(jq 'del(.mode)' "$meta_path")"
+                    echo "$result" > "$meta_path"
+                elif [[ -f "$meta_path" ]]; then
+                    # jq 없이 sed로 mode 필드 제거
+                    local tmp
+                    tmp="$(mktemp)"
+                    sed '/"mode": *"[^"]*"/d' "$meta_path" \
+                        | sed ':a;N;$!ba;s/,\n}/\n}/g' > "$tmp"
+                    mv "$tmp" "$meta_path"
+                fi
+                log_info ".harness-meta.json: mode 필드 제거 완료"
+            fi
+
+            echo ""
+            log_info "=== harness 활성화 완료 ==="
+            echo ""
+            echo -e "${YELLOW}[참고]${NC} 모드 전환은 새 세션에서 반영됩니다. 실행 중인 세션에는 영향이 없습니다."
+            ;;
+    esac
+}
+
 cmd_completion() {
     local shell_type="${1:-}"
 
@@ -1245,7 +1501,7 @@ _harness_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="install update delete status config completion"
+    commands="install update delete status mode config completion"
     options="-f --force -y --yes -n --dry-run -v --verbose -h --help"
 
     # 첫 번째 인자: 서브커맨드 또는 옵션
@@ -1265,6 +1521,18 @@ _harness_completions() {
             fi
             # 그 이후: 옵션
             COMPREPLY=( $(compgen -W "${options}" -- "${cur}") )
+            ;;
+        mode)
+            # 두 번째 인자: on/off/status
+            if [[ ${COMP_CWORD} -eq 2 ]]; then
+                COMPREPLY=( $(compgen -W "on off status" -- "${cur}") )
+                return 0
+            fi
+            # 세 번째 인자: 디렉토리 경로
+            if [[ ${COMP_CWORD} -eq 3 && "${cur}" != -* ]]; then
+                COMPREPLY=( $(compgen -d -- "${cur}") )
+                return 0
+            fi
             ;;
         completion)
             # 두 번째 인자: 셸 타입
@@ -1300,6 +1568,7 @@ _harness() {
         'update:설치된 harness를 최신 버전으로 업데이트'
         'delete:설치된 harness 삭제'
         'status:설치 상태 확인'
+        'mode:harness 모드 전환 (on/off/status)'
         'config:텔레그램 알림 환경변수 대화형 설정'
         'completion:셸 자동완성 스크립트 출력'
     )
@@ -1320,6 +1589,7 @@ _harness() {
     _arguments -C \
         '1:command:->command' \
         '2:argument:->argument' \
+        '3:third:->third' \
         '*:options:->options'
 
     case "${state}" in
@@ -1332,10 +1602,22 @@ _harness() {
                 install|update|delete|status)
                     _directories
                     ;;
+                mode)
+                    local -a mode_actions
+                    mode_actions=('on:harness 활성화' 'off:harness 비활성화' 'status:현재 모드 상태 확인')
+                    _describe 'action' mode_actions
+                    ;;
                 completion)
                     local -a shells
                     shells=('bash:Bash 셸 자동완성' 'zsh:Zsh 셸 자동완성')
                     _describe 'shell' shells
+                    ;;
+            esac
+            ;;
+        third)
+            case "${words[2]}" in
+                mode)
+                    _directories
                     ;;
             esac
             ;;
@@ -1356,12 +1638,13 @@ usage() {
 사용법: harness <command> [dir] [options]
 
 명령:
-  install    [dir]       대상 디렉토리에 harness 설치 (기본: 현재 디렉토리)
-  update     [dir]       설치된 harness를 최신 버전으로 업데이트
-  delete     [dir]       설치된 harness 삭제
-  status     [dir]       설치 상태 확인
-  config                 텔레그램 알림 환경변수 대화형 설정 (~/.claude/.env)
-  completion <bash|zsh>  셸 자동완성 스크립트 출력
+  install    [dir]              대상 디렉토리에 harness 설치 (기본: 현재 디렉토리)
+  update     [dir]              설치된 harness를 최신 버전으로 업데이트
+  delete     [dir]              설치된 harness 삭제
+  status     [dir]              설치 상태 확인
+  mode       <on|off|status> [dir]  harness 모드 전환 (새 세션에서 반영)
+  config                        텔레그램 알림 환경변수 대화형 설정 (~/.claude/.env)
+  completion <bash|zsh>         셸 자동완성 스크립트 출력
 
 옵션:
   -f, --force, -y   확인 프롬프트 스킵
@@ -1382,8 +1665,19 @@ main() {
     # 인자 파싱
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            install|update|delete|status|config|completion)
-                command="$1"
+            install|update|delete|status|config|completion|mode)
+                if [[ -z "$command" ]]; then
+                    command="$1"
+                else
+                    # command 이미 설정됨 - 위치 인자로 처리
+                    if [[ -z "$target" ]]; then
+                        target="$1"
+                    elif [[ -z "${extra_arg:-}" ]]; then
+                        extra_arg="$1"
+                    else
+                        die "인자가 너무 많습니다: $1"
+                    fi
+                fi
                 shift
                 ;;
             -f|--force|-y|--yes)
@@ -1408,6 +1702,8 @@ main() {
             *)
                 if [[ -z "$target" ]]; then
                     target="$1"
+                elif [[ -z "${extra_arg:-}" ]]; then
+                    extra_arg="$1"
                 else
                     die "인자가 너무 많습니다: $1"
                 fi
@@ -1429,6 +1725,15 @@ main() {
         return
     fi
 
+    if [[ "$command" == "mode" ]]; then
+        # harness mode <on|off|status> [dir]
+        # target에는 action(on/off/status)이 들어가고, extra_arg에 실제 dir이 들어감
+        local action="${target:-status}"
+        local mode_target="${extra_arg:-.}"
+        cmd_mode "$action" "$mode_target"
+        return
+    fi
+
     [[ -n "$target" ]]  || target="."
 
     check_dependencies
@@ -1441,6 +1746,7 @@ main() {
         update)  cmd_update  "$target" ;;
         delete)  cmd_delete  "$target" ;;
         status)  cmd_status  "$target" ;;
+        mode)    cmd_mode "${extra_arg:-status}" "$target" ;;
     esac
 }
 

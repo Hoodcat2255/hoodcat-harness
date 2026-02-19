@@ -124,6 +124,25 @@ else
     TEAM_SECTION=" ${SEP} 👤 ${DIM}solo${RESET}"
 fi
 
+# harness 모드 표시
+HARNESS_MODE="on"  # 기본값
+META_DIR="${CLAUDE_PROJECT_DIR:-$CWD}"
+META_FILE="$META_DIR/.claude/.harness-meta.json"
+if [ -f "$META_FILE" ]; then
+    if command -v jq > /dev/null 2>&1; then
+        MODE_VAL=$(jq -r '.mode // empty' "$META_FILE" 2>/dev/null)
+    else
+        # jq 없으면 grep fallback
+        MODE_VAL=$(grep -o '"mode"[[:space:]]*:[[:space:]]*"[^"]*"' "$META_FILE" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)"$/\1/')
+    fi
+    [ -n "$MODE_VAL" ] && HARNESS_MODE="$MODE_VAL"
+fi
+
+HARNESS_SECTION=""
+if [ "$HARNESS_MODE" = "off" ]; then
+    HARNESS_SECTION=" ${SEP} ${RED}⚡ OFF${RESET}"
+fi
+
 # 서브에이전트 실행 중
 AGENT_SECTION=""
 if [ -n "$AGENT" ]; then
@@ -132,4 +151,4 @@ fi
 
 # 출력 (줄 클리어 후 표시 - 이전 텍스트 잔여 방지)
 echo -ne '\033[2K\r'
-echo -e "📁 ${DIR_COLOR}${DIR_NAME}${RESET}${GIT_SECTION} ${SEP} 📊 ${CTX_COLOR}${PCT}%${RESET}${USAGE_SECTION} ${SEP} 🤖 ${DIM}${MODEL}${RESET}${TEAM_SECTION}${AGENT_SECTION}"
+echo -e "📁 ${DIR_COLOR}${DIR_NAME}${RESET}${GIT_SECTION} ${SEP} 📊 ${CTX_COLOR}${PCT}%${RESET}${USAGE_SECTION} ${SEP} 🤖 ${DIM}${MODEL}${RESET}${TEAM_SECTION}${HARNESS_SECTION}${AGENT_SECTION}"
