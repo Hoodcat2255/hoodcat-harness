@@ -1558,8 +1558,6 @@ BASH_COMPLETION
 
 _harness_completion_zsh() {
     cat << 'ZSH_COMPLETION'
-#compdef harness harness.sh
-
 _harness() {
     local -a commands options
 
@@ -1627,7 +1625,7 @@ _harness() {
     esac
 }
 
-_harness "$@"
+compdef _harness harness harness.sh
 ZSH_COMPLETION
 }
 
