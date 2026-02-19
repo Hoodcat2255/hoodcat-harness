@@ -1238,20 +1238,6 @@ cmd_completion() {
 }
 
 _harness_completion_bash() {
-    # stderr로 설치 안내 출력
-    cat >&2 << 'INSTALL_GUIDE'
-# harness bash completion 설치 방법:
-#   1) 현재 세션에만 적용:
-#      eval "$(harness completion bash)"
-#
-#   2) 영구 적용 (~/.bashrc에 추가):
-#      echo 'eval "$(harness completion bash)"' >> ~/.bashrc
-#
-#   3) 파일로 저장:
-#      harness completion bash > /etc/bash_completion.d/harness
-INSTALL_GUIDE
-
-    # stdout으로 completion 스크립트 출력
     cat << 'BASH_COMPLETION'
 _harness_completions() {
     local cur prev commands options
@@ -1303,21 +1289,6 @@ BASH_COMPLETION
 }
 
 _harness_completion_zsh() {
-    # stderr로 설치 안내 출력
-    cat >&2 << 'INSTALL_GUIDE'
-# harness zsh completion 설치 방법:
-#   1) 현재 세션에만 적용:
-#      eval "$(harness completion zsh)"
-#
-#   2) 영구 적용 (~/.zshrc에 추가):
-#      echo 'eval "$(harness completion zsh)"' >> ~/.zshrc
-#
-#   3) fpath에 추가 (권장):
-#      harness completion zsh > "${fpath[1]}/_harness"
-#      autoload -Uz compinit && compinit
-INSTALL_GUIDE
-
-    # stdout으로 completion 스크립트 출력
     cat << 'ZSH_COMPLETION'
 #compdef harness harness.sh
 

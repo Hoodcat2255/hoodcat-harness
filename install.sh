@@ -56,7 +56,12 @@ install_completion() {
     esac
 
     marker="# hoodcat-harness completion"
-    eval_line="eval \"\$(${HARNESS_SH} completion ${shell_name})\""
+    # PATH에 harness가 있으면 짧은 명령어, 없으면 절대경로
+    if command -v harness &>/dev/null; then
+        eval_line="eval \"\$(harness completion ${shell_name})\""
+    else
+        eval_line="eval \"\$(${HARNESS_SH} completion ${shell_name})\""
+    fi
 
     # 이미 설치되어 있으면 스킵
     if [[ -f "$shell_rc" ]] && grep -qF "$marker" "$shell_rc" 2>/dev/null; then
@@ -79,7 +84,7 @@ install_completion() {
 
 install_completion
 
-# --- PATH 확인 ---
+# --- 완료 ---
 
 if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
     echo ""
@@ -88,4 +93,4 @@ if ! echo "$PATH" | tr ':' '\n' | grep -qx "$BIN_DIR"; then
 fi
 
 echo ""
-echo "완료. 새 셸을 열거나 'source ~/.bashrc' / 'source ~/.zshrc' 를 실행하세요."
+echo "완료. 새 셸에서 harness <tab>으로 자동완성을 사용할 수 있습니다."
