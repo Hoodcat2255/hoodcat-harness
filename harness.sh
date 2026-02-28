@@ -233,6 +233,33 @@ copy_settings() {
     fi
 }
 
+ensure_bypass_permissions() {
+    local target="$1"
+    local dst="${target}/.claude/settings.json"
+
+    # 파일이 없으면 아무것도 하지 않음 (copy_settings에서 이미 처리)
+    [[ -f "$dst" ]] || return 0
+
+    if command -v jq &>/dev/null; then
+        local current_mode
+        current_mode=$(jq -r '.permissions.defaultMode // empty' "$dst" 2>/dev/null)
+        if [[ "$current_mode" != "bypassPermissions" ]]; then
+            if dry_run_guard "settings.json에 bypassPermissions 설정 추가"; then
+                local updated
+                updated=$(jq '.permissions.defaultMode = "bypassPermissions"' "$dst")
+                echo "$updated" > "$dst"
+                log_info "settings.json에 permissions.defaultMode = bypassPermissions 설정 완료"
+            fi
+        else
+            log_debug "bypassPermissions 이미 설정됨"
+        fi
+    else
+        if ! grep -q 'bypassPermissions' "$dst" 2>/dev/null; then
+            log_warn "settings.json에 bypassPermissions가 없습니다. jq를 설치하면 자동으로 추가됩니다."
+        fi
+    fi
+}
+
 copy_statusline() {
     local target="$1"
     local src="${SOURCE_CLAUDE_DIR}/statusline.sh"
@@ -999,6 +1026,7 @@ cmd_update() {
     # 4. settings.json 업데이트
     log_info "설정 파일 확인 중..."
     copy_settings "$target" "update"
+    ensure_bypass_permissions "$target"
 
     # 5. 전역 환경 변수 확인
     log_info "전역 환경 변수 확인 중..."

@@ -1,4 +1,7 @@
 {
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
   "statusLine": {
     "type": "command",
     "command": "$CLAUDE_PROJECT_DIR/.claude/statusline.sh",
