@@ -405,6 +405,15 @@ BAD - 독립적인 호출을 불필요하게 순차 실행:
 - Build/test results are judged by **actual command exit codes only**
 - Never trust text reports ("tests passed") without verifying the exit code
 
+### Factual Claim Verification (조사 태스크 검증 규칙)
+
+조사/분석 태스크에서 **사실 주장(날짜, 수치, 버전, 경로 등)**을 보고할 때:
+
+1. **Raw Output 의무 첨부**: 모든 사실 주장은 해당 명령어의 원본 출력을 함께 제시해야 한다. "2/26에 macOS 업데이트"라고 주장하면 `softwareupdate --history`의 raw output이 반드시 동반되어야 한다.
+2. **추론과 사실 분리**: 명령어 출력에서 직접 확인된 사실과, 그로부터 추론한 내용을 명확히 구분하여 표기한다.
+3. **빈틈 인정**: 데이터에 빈틈이 있으면 그럴듯한 내용으로 채우지 말고, "확인 불가" 또는 "추가 조사 필요"로 명시한다.
+4. **날짜/수치 교차 검증**: 구체적 날짜, 버전, 수치를 보고할 때는 최소 2개 이상의 소스로 교차 확인한다.
+
 ## Shared Context Protocol
 
 이전 에이전트의 작업 결과가 additionalContext로 주입되면, 이를 참고하여 중복 작업을 줄인다.
