@@ -1132,6 +1132,7 @@ cmd_delete() {
             echo "  .claude/settings.json (백업 후 삭제)"
         fi
     fi
+    echo "  context-mode MCP 서버 등록 해제"
     echo ""
 
     # CLAUDE.md import 제거 예고
@@ -1173,6 +1174,22 @@ cmd_delete() {
     fi
 
     echo ""
+
+    # 0. context-mode MCP 서버 등록 해제
+    if command -v claude &>/dev/null; then
+        log_info "context-mode MCP 서버 등록 해제 중..."
+        if dry_run_guard "context-mode MCP 서버 등록 해제"; then
+            if (cd "$target" && claude mcp remove context-mode) 2>/dev/null; then
+                log_info "context-mode MCP 서버 등록 해제 완료"
+            else
+                log_warn "context-mode MCP 서버 등록 해제 실패. 수동으로 실행하세요:"
+                log_warn "  cd $target && claude mcp remove context-mode"
+            fi
+        fi
+    else
+        log_warn "claude CLI가 PATH에 없습니다. context-mode MCP 서버 등록 해제를 건너뜁니다."
+        log_warn "수동으로 실행하세요: claude mcp remove context-mode"
+    fi
 
     # 1. 디렉토리 삭제
     for dir in "${harness_dirs[@]}"; do
