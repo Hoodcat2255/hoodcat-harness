@@ -260,6 +260,41 @@ ensure_bypass_permissions() {
     fi
 }
 
+
+setup_context_mode_mcp() {
+    local target="$1"
+    
+    # Node.js 18+ 확인
+    if ! command -v node &>/dev/null; then
+        log_warn "Node.js가 설치되어 있지 않습니다. context-mode MCP 서버를 건너뜁니다."
+        log_warn "Node.js 18+ 설치 후 수동으로 실행하세요: claude mcp add context-mode -- npx -y context-mode"
+        return
+    fi
+    
+    local node_major
+    node_major=$(node -v | sed 's/v//' | cut -d. -f1)
+    if (( node_major < 18 )); then
+        log_warn "Node.js 18+ 필요 (현재: $(node -v)). context-mode MCP 서버를 건너뜁니다."
+        return
+    fi
+    
+    if ! command -v claude &>/dev/null; then
+        log_warn "claude CLI가 PATH에 없습니다. context-mode MCP 서버를 건너뜁니다."
+        log_warn "수동으로 실행하세요: claude mcp add context-mode -- npx -y context-mode"
+        return
+    fi
+    
+    log_info "context-mode MCP 서버 설정 중..."
+    if dry_run_guard "context-mode MCP 서버 등록"; then
+        if (cd "$target" && claude mcp add context-mode -- npx -y context-mode) 2>/dev/null; then
+            log_info "context-mode MCP 서버 등록 완료"
+        else
+            log_warn "context-mode MCP 서버 자동 등록 실패. 수동으로 실행하세요:"
+            log_warn "  cd $target && claude mcp add context-mode -- npx -y context-mode"
+        fi
+    fi
+}
+
 copy_statusline() {
     local target="$1"
     local src="${SOURCE_CLAUDE_DIR}/statusline.sh"
@@ -898,6 +933,9 @@ cmd_install() {
     log_info "git 설정 확인 중..."
     setup_git "$target" "$git_state"
 
+    # 11. context-mode MCP 서버 설정
+    setup_context_mode_mcp "$target"
+
     echo ""
     log_info "=== 설치 완료 ==="
     echo ""
@@ -1048,6 +1086,9 @@ cmd_update() {
     # 9. .harness-meta.json 갱신
     log_info "메타 정보 갱신 중..."
     write_harness_meta "$target" "update"
+
+    # 10. context-mode MCP 서버 설정
+    setup_context_mode_mcp "$target"
 
     echo ""
     log_info "=== 업데이트 완료 (${installed_commit} → ${current_commit}) ==="

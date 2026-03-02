@@ -81,6 +81,27 @@ Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 
 조사 완료 후 사용자에게 핵심 5가지를 요약하여 보고한다.
 
+## 대용량 웹 콘텐츠 처리 (Context Mode)
+
+context-mode MCP 서버가 활성화되어 있으면, 대용량 웹 페이지에 대해 fetch_and_index를 활용한다.
+
+### fetch_and_index 사용
+
+문서 페이지나 블로그 글이 길 것으로 예상될 때 (5KB 이상):
+- `mcp__context-mode__fetch_and_index(url: "https://example.com/docs/guide")`
+- 페이지를 마크다운으로 변환하고 FTS5에 인덱싱한다
+- 이후 `mcp__context-mode__search(queries: ["relevant keyword"])` 로 필요한 부분만 검색
+
+### WebFetch와의 사용 구분
+
+- **짧은 페이지** (API 응답, 짧은 블로그 글): WebFetch 그대로 사용
+- **긴 문서 페이지** (프레임워크 가이드, API 레퍼런스): fetch_and_index 사용
+- **GitHub README/이슈**: gh CLI로 직접 조회 (변경 없음)
+
+### 인덱싱된 콘텐츠 재활용
+
+fetch_and_index로 인덱싱한 내용은 세션 내 FTS5 DB에 보존된다. 같은 세션의 다른 에이전트도 search로 검색할 수 있으므로, 한번 인덱싱하면 중복 페치를 피할 수 있다.
+
 ## 핸드오프 컨텍스트
 
 이 스킬의 출력은 다른 스킬/에이전트에서 소비된다:
