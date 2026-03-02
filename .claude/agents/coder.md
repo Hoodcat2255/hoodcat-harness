@@ -25,6 +25,8 @@ tools:
   - Bash(pip audit *)
   - Bash(govulncheck *)
   - Bash(gh *)
+mcpServers:
+  - context-mode
 model: opus
 memory: project
 ---

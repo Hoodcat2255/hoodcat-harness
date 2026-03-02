@@ -80,6 +80,34 @@ CLAUDE.md를 읽어 코딩 컨벤션을 파악한다.
 - [실행한 도구와 결과]
 ```
 
+## 대용량 출력 처리 (Context Mode)
+
+context-mode MCP 서버가 활성화되어 있으면, 대용량 도구 출력에 대해 context-mode 도구를 활용하여 컨텍스트 윈도우를 절약한다.
+
+### execute 사용 (대용량 명령 출력)
+
+테스트/빌드 실행 등 출력이 50줄 이상 예상되는 명령에 사용한다:
+- `mcp__context-mode__execute(language: "shell", code: "npm test 2>&1")`
+- `mcp__context-mode__execute(language: "shell", code: "pytest -v 2>&1")`
+- `mcp__context-mode__execute(language: "shell", code: "cargo test 2>&1")`
+
+intent 파라미터로 관심 있는 부분만 추출할 수 있다:
+- `mcp__context-mode__execute(language: "shell", code: "npm test 2>&1", intent: "failed tests and error messages")`
+
+### execute_file 사용 (대용량 파일 분석)
+
+분석 대상 파일이 200줄 이상일 때, 특정 정보만 추출하려면 사용한다:
+- `mcp__context-mode__execute_file(path: "path/to/large-file.log", language: "shell", code: "grep -n 'ERROR' $FILE")`
+
+### 사용하지 않는 경우
+
+다음 상황에서는 일반 도구를 그대로 사용한다:
+- **코드 편집 대상 파일 읽기**: Edit/Write를 위해 정확한 내용이 필요하므로 Read 사용
+- **git add, git commit, git push**: 파일 변경 작업은 일반 Bash 사용
+- **소규모 출력 (50줄 미만)**: 압축 오버헤드가 이점을 초과
+- **에러 디버깅 중**: 정확한 스택 트레이스가 필요하면 일반 Bash로 실행
+- **설정 파일 읽기**: package.json, tsconfig.json 등 정확한 구조가 필요한 파일
+
 ## REVIEW 연동
 
 code 스킬은 자체 리뷰를 수행하지 않는다.

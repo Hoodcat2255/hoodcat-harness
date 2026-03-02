@@ -17,6 +17,7 @@ tools:
   - WebFetch
 mcpServers:
   - context7
+  - context-mode
 model: opus
 memory: project
 ---
