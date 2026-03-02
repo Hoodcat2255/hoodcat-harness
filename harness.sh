@@ -312,6 +312,136 @@ copy_statusline() {
     fi
 }
 
+
+install_shell_functions() {
+    local shell_functions_src="${SCRIPT_DIR}/shell-functions.sh"
+
+    if [[ ! -f "$shell_functions_src" ]]; then
+        log_debug "shell-functions.sh가 소스에 없습니다."
+        return
+    fi
+
+    # RC 파일 감지
+    local rc_file=""
+    if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$(basename "${SHELL:-}")" == "zsh" ]]; then
+        rc_file="$HOME/.zshrc"
+    elif [[ -n "${BASH_VERSION:-}" ]] || [[ "$(basename "${SHELL:-}")" == "bash" ]]; then
+        rc_file="$HOME/.bashrc"
+    fi
+
+    if [[ -z "$rc_file" ]]; then
+        log_warn "셸 RC 파일을 감지할 수 없습니다. shell-functions.sh를 수동으로 source하세요:"
+        log_warn "  source ${shell_functions_src}"
+        return
+    fi
+
+    # 이미 설정되어 있는지 확인 (중복 방지)
+    if [[ -f "$rc_file" ]] && grep -qF "# hoodcat-harness shell functions" "$rc_file" 2>/dev/null; then
+        log_info "셸 함수가 이미 ${rc_file}에 설정되어 있습니다."
+        return
+    fi
+
+    # 비대화형 환경이면 프롬프트 스킵
+    if [[ ! -t 0 ]]; then
+        log_warn "비대화형 환경입니다. 셸 함수를 수동으로 설정하세요:"
+        log_warn "  아래 내용을 ${rc_file}에 추가하세요:"
+        log_warn "  # hoodcat-harness shell functions"
+        log_warn "  export HARNESS_SOURCE_DIR=\"${SCRIPT_DIR}\""
+        log_warn "  export HARNESS_PROJECTS_DIR=\"\$HOME/Projects\""
+        log_warn "  source \"\$HARNESS_SOURCE_DIR/shell-functions.sh\""
+        return
+    fi
+
+    # 프로젝트 디렉토리 경로 입력
+    local projects_dir="$HOME/Projects"
+    echo ""
+    echo -en "${YELLOW}프로젝트 디렉토리 경로를 입력하세요 [${projects_dir}]: ${NC}"
+    read -r user_input
+    if [[ -n "$user_input" ]]; then
+        projects_dir="$user_input"
+    fi
+
+    if ! confirm "${rc_file}에 셸 함수를 추가하시겠습니까?"; then
+        log_info "셸 함수 설치를 건너뜁니다."
+        return
+    fi
+
+    if dry_run_guard "${rc_file}에 셸 함수 블록 추가"; then
+        {
+            echo ""
+            echo "# hoodcat-harness shell functions"
+            echo "export HARNESS_SOURCE_DIR=\"${SCRIPT_DIR}\""
+            echo "export HARNESS_PROJECTS_DIR=\"${projects_dir}\""
+            echo "source \"\$HARNESS_SOURCE_DIR/shell-functions.sh\""
+        } >> "$rc_file"
+        log_info "셸 함수가 ${rc_file}에 추가되었습니다."
+        log_info "새 터미널을 열거나 'source ${rc_file}'를 실행하세요."
+    fi
+}
+
+uninstall_shell_functions() {
+    # RC 파일 감지
+    local rc_file=""
+    if [[ -n "${ZSH_VERSION:-}" ]] || [[ "$(basename "${SHELL:-}")" == "zsh" ]]; then
+        rc_file="$HOME/.zshrc"
+    elif [[ -n "${BASH_VERSION:-}" ]] || [[ "$(basename "${SHELL:-}")" == "bash" ]]; then
+        rc_file="$HOME/.bashrc"
+    fi
+
+    if [[ -z "$rc_file" ]] || [[ ! -f "$rc_file" ]]; then
+        return
+    fi
+
+    # hoodcat-harness 블록이 있는지 확인
+    if ! grep -qF "# hoodcat-harness shell functions" "$rc_file" 2>/dev/null; then
+        log_debug "셸 함수 블록이 ${rc_file}에 없습니다."
+        return
+    fi
+
+    if dry_run_guard "${rc_file}에서 셸 함수 블록 제거"; then
+        # macOS/Linux 호환: 마커부터 source 줄까지 제거
+        # 임시 파일로 필터링
+        local tmpfile
+        tmpfile="$(mktemp)"
+        local in_block=false
+        local prev_blank=false
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            # 마커 직전 빈 줄을 기억해두고 마커가 나오면 함께 제거
+            if [[ -z "$line" ]]; then
+                prev_blank=true
+                continue
+            fi
+            if [[ "$line" == "# hoodcat-harness shell functions" ]]; then
+                in_block=true
+                prev_blank=false
+                continue
+            fi
+            # 이전에 건너뛴 빈 줄이 있었는데 마커가 아니면 복원
+            if $prev_blank; then
+                printf '\n'
+                prev_blank=false
+            fi
+            if $in_block; then
+                # source 줄을 만나면 블록 종료
+                if [[ "$line" == source*shell-functions.sh* ]]; then
+                    in_block=false
+                    continue
+                fi
+                # export 줄은 블록 내부이므로 스킵
+                if [[ "$line" == export\ HARNESS_SOURCE_DIR=* ]] || [[ "$line" == export\ HARNESS_PROJECTS_DIR=* ]]; then
+                    continue
+                fi
+                # 예상치 못한 줄이면 블록 종료하고 보존
+                in_block=false
+            fi
+            printf '%s\n' "$line"
+        done < "$rc_file" > "$tmpfile"
+
+        mv "$tmpfile" "$rc_file"
+        log_info "${rc_file}에서 셸 함수 블록을 제거했습니다."
+    fi
+}
+
 copy_harness_md() {
     local target="$1"
     local src="${SOURCE_CLAUDE_DIR}/harness.md"
@@ -936,6 +1066,10 @@ cmd_install() {
     # 11. context-mode MCP 서버 설정
     setup_context_mode_mcp "$target"
 
+    # 12. 셸 함수 설치
+    log_info "셸 함수 설치 확인 중..."
+    install_shell_functions
+
     echo ""
     log_info "=== 설치 완료 ==="
     echo ""
@@ -1190,6 +1324,10 @@ cmd_delete() {
         log_warn "claude CLI가 PATH에 없습니다. context-mode MCP 서버 등록 해제를 건너뜁니다."
         log_warn "수동으로 실행하세요: claude mcp remove context-mode"
     fi
+
+    # 셸 함수 제거
+    log_info "셸 함수 제거 중..."
+    uninstall_shell_functions
 
     # 1. 디렉토리 삭제
     for dir in "${harness_dirs[@]}"; do
