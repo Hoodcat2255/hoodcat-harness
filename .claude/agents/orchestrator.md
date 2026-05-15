@@ -145,6 +145,8 @@ Before every tool call, ask yourself:
 | `team-review` | coder | Multi-lens review for large/high-risk changes |
 | `qa-swarm` | coder | Parallel QA for diverse test suites |
 
+Note: `/ultrareview` (Claude Code 공식 슬래시 커맨드, 별도 과금/background 실행)는 Orchestrator가 자동 호출하지 않는다. 사용자가 명시적으로 요청한 경우에만 안내한다. 자체 판단으로 다관점 리뷰가 필요하면 `team-review`를 사용한다. 상세 비교는 `docs/research-ultrareview-vs-team-review-20260516.md` 참고.
+
 ## Planning Rules
 
 1. **Minimum steps**: Use only what's needed. No blueprint for a typo fix.

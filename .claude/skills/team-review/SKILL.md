@@ -137,3 +137,22 @@ TeamDelete()
 
 이 스킬은 3개의 별도 Claude 인스턴스를 스폰하므로, 단일 리뷰 대비 약 3배의 토큰을 사용한다.
 단순 변경에는 기존 서브에이전트 방식의 리뷰를 사용하라.
+
+## `/team-review` vs `/ultrareview` 역할 분리
+
+같은 다관점 리뷰 도구이지만 사용 시점이 다릅니다.
+
+| 항목 | `/team-review` (harness) | `/ultrareview` (Claude Code 공식) |
+|------|-------------------------|--------------------------------|
+| 실행 위치 | fork context (동일 세션) | background subscription (별도 과금) |
+| 응답성 | 즉시 결과 | 비동기, 별도 큐 |
+| 비용 | 단일 리뷰 대비 약 3배 | 별도 청구 |
+| 적합한 시점 | iteration 중 (PR 작성 직전 점검) | pre-merge 고위험 PR 최종 검증 |
+| Orchestrator 자동 호출 | 가능 | **호출하지 않음** (사용자 명시 요청 시에만) |
+
+권장 사용 패턴:
+1. 개발 중 코드 리뷰가 필요할 때 → `/team-review`
+2. 머지 직전 마지막 게이트가 필요한 고위험 변경 → `/ultrareview` (사용자가 직접 호출)
+3. Orchestrator는 자체 판단으로 `/ultrareview`를 호출하지 않음. 별도 과금 + 비동기이므로 사용자 의사 명시 필요.
+
+상세 비교 분석: `docs/research-ultrareview-vs-team-review-20260516.md`
