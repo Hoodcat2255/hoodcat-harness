@@ -17,6 +17,29 @@ LOG_FILE="$LOG_DIR/hooks.log"
 
 mkdir -p "$LOG_DIR"
 
+# 로그 회전: $LOG_FILE이 10MB를 초과하면 .1~.5로 순환 보관 후 폐기.
+# 공유 LOG_FILE은 여러 훅(enforce-delegation, shared-context-*, notify-telegram, subagent-monitor,
+# teammate-idle-check, task-quality-gate, shared-context-finalize)이 함께 사용한다.
+# PreToolUse는 가장 빈번히 호출되는 훅이므로 회전 책임을 여기서만 진다.
+# atomic rename(mv)으로 동시 쓰기 race를 최소화한다 (append 쓰기는 회전 직후에도 새 파일을 만들어 계속됨).
+rotate_log_if_needed() {
+  local max_size=10485760  # 10MB
+  if [ ! -f "$LOG_FILE" ]; then return; fi
+  local size
+  if size=$(stat -f%z "$LOG_FILE" 2>/dev/null); then :;
+  elif size=$(stat -c%s "$LOG_FILE" 2>/dev/null); then :;
+  else size=0
+  fi
+  if [ "$size" -gt "$max_size" ]; then
+    [ -f "$LOG_FILE.5" ] && rm -f "$LOG_FILE.5"
+    for i in 4 3 2 1; do
+      [ -f "$LOG_FILE.$i" ] && mv "$LOG_FILE.$i" "$LOG_FILE.$((i+1))"
+    done
+    mv "$LOG_FILE" "$LOG_FILE.1"
+  fi
+}
+rotate_log_if_needed
+
 log() {
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")] ENFORCE_DELEGATION: $1" >> "$LOG_FILE"
 }
@@ -45,12 +68,35 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
-# 공통 필드 추출 (jq 1회 호출당 안전 fallback)
-transcript_path=$(echo "$input" | jq -r '.transcript_path // ""' 2>/dev/null || echo "")
-agent_transcript_path=$(echo "$input" | jq -r '.agent_transcript_path // ""' 2>/dev/null || echo "")
-agent_id=$(echo "$input" | jq -r '.agent_id // ""' 2>/dev/null || echo "")
-agent_type=$(echo "$input" | jq -r '.agent_type // ""' 2>/dev/null || echo "")
-tool_name=$(echo "$input" | jq -r '.tool_name // ""' 2>/dev/null || echo "")
+# 공통 필드 추출: 단일 jq 호출로 6개 필드를 줄바꿈 구분으로 받아 한 줄씩 read한다.
+# 인접 빈 줄을 보존하기 위해 각 변수에 대해 별도 read를 사용한다.
+# (IFS=$'\n' read -d '' -a 배열 방식은 read가 IFS 연속 빈 토큰을 병합해 빈 필드가 사라진다.)
+# jq 실패 시 빈 줄 6개로 fallback (fail-open 유지).
+__hook_fields=$(echo "$input" | jq -r '
+  [
+    .transcript_path // "",
+    .agent_transcript_path // "",
+    .agent_id // "",
+    .agent_type // "",
+    .tool_name // "",
+    .tool_input.file_path // ""
+  ] | .[]
+' 2>/dev/null || printf '\n\n\n\n\n\n')
+transcript_path=""
+agent_transcript_path=""
+agent_id=""
+agent_type=""
+tool_name=""
+tool_file_path=""
+{
+  read -r transcript_path || true
+  read -r agent_transcript_path || true
+  read -r agent_id || true
+  read -r agent_type || true
+  read -r tool_name || true
+  read -r tool_file_path || true
+} <<< "$__hook_fields"
+unset __hook_fields
 
 # 서브에이전트 판별: 신호별 사유를 반환 (빈 문자열이면 Main Agent)
 detect_subagent_signal() {
@@ -83,22 +129,35 @@ fi
 # 안전망: 입력에 서브에이전트 의심 필드가 흔적이라도 있으면 전체 input을 dump하여
 # PreToolUse payload의 실제 키 구조를 라이브 운영에서 확정할 수 있게 한다.
 if [ -n "$agent_id" ] || [ -n "$agent_transcript_path" ] || [ -n "$agent_type" ]; then
-  # input JSON을 한 줄로 압축 (개행 제거)하여 grep 가능한 단일 라인으로 기록
-  compact_input=$(echo "$input" | jq -c '.' 2>/dev/null || echo "$input" | tr -d '\n')
+  # 민감 필드 마스킹: tool_input.{old_string,new_string,content,command}는 사용자 코드/시크릿을
+  # 포함할 수 있으므로 80자로 truncate한 후 "...[truncated]"를 덧붙여 기록한다.
+  # jq 실패 시 원본 JSON을 dump하지 않고 "<jq_failed>"만 남겨 정보 누출을 막는다.
+  compact_input=$(echo "$input" | jq -c '
+    .tool_input |= (
+      if . == null then null
+      else
+        with_entries(
+          if (.key | IN("old_string", "new_string", "content", "command")) then
+            .value = ((.value | tostring)[0:80] + "...[truncated]")
+          else .
+          end
+        )
+      end
+    )
+  ' 2>/dev/null || echo "<jq_failed>")
   log "[ENFORCE_DELEGATION_DEBUG] suspicious_main_agent input=$compact_input"
 fi
 
 # Edit 도구: 무조건 차단
 if [ "$tool_name" = "Edit" ]; then
-  edit_file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
-  log "BLOCK: Main Agent $tool_name attempt on ${edit_file_path:-<none>}"
-  emit_block_message "Edit" "$edit_file_path"
+  log "BLOCK: Main Agent $tool_name attempt on ${tool_file_path:-<none>}"
+  emit_block_message "Edit" "$tool_file_path"
   exit 2
 fi
 
 # Write 도구: 소스 코드 확장자이면 차단
 if [ "$tool_name" = "Write" ]; then
-  file_path=$(echo "$input" | jq -r '.tool_input.file_path // ""' 2>/dev/null || echo "")
+  file_path="$tool_file_path"
 
   # 확장자 추출
   extension="${file_path##*.}"
