@@ -298,6 +298,41 @@ After each step, evaluate the result:
 - **Failure** → attempt fix, then retry; after 2 failures → report to user
 - **Unexpected discovery** → revise the plan itself
 
+### Autonomous Goal Loops (`/goal`)
+
+Claude Code 2.1.139부터 `/goal "<완료 조건>"` 커맨드로 명시적 종료 조건이 충족될 때까지 여러 턴에 걸쳐 자율적으로 작업을 이어갈 수 있다. 실행 중에는 elapsed/turns/tokens가 라이브 오버레이로 표시된다.
+
+**적합한 사용 시점**:
+- 종료 조건이 **객관적이고 측정 가능**한 장기 작업
+  - 예: `"npm test가 exit 0이 될 때까지"`, `"tsc --strict 에러 수가 0이 될 때까지"`, `"dist/bundle.js가 생성될 때까지"`
+- 한 사이클이 수 분 이상 걸리고 사람이 매 단계 확인할 필요가 없을 때
+
+**부적합한 경우 (사용 금지)**:
+- 주관적 조건 (`"코드가 좋아질 때까지"`, `"적당히 리팩토링"`) — 무한 루프 위험
+- 종료 조건을 판정할 객관적 검증 명령이 없는 작업
+- 단일 턴으로 끝날 작업 (오버헤드만 증가)
+
+**적응적 실행 프로토콜과의 관계**:
+- `/goal`은 "2회 실패 시 사용자 보고" 규칙을 **우회하지 않는다**. 같은 실패가 반복되면 루프 내에서도 사용자 보고로 전환한다.
+- 종료 조건이 진전 없이 N 사이클 정체되면(예: 동일 에러 3회 반복) `/goal` 루프를 중단하고 사용자에게 보고한다.
+
+**위임 시스템과의 결합**:
+- Orchestrator가 fork 컨텍스트에서 자율 루프를 돌더라도, **코드 변경은 여전히 `Skill("code", ...)`로 워커에 위임**한다 (Orchestrator의 ABSOLUTE RULES 그대로).
+- 루프 안에서 Edit/Write 충동이 생기면 즉시 `Skill("code")`로 전환.
+- 사용자가 Main Agent 측에서 `/goal`을 직접 호출하더라도 `enforce-delegation.sh`가 그대로 적용되므로 위임 시스템은 우회되지 않는다.
+
+**종료 조건 작성 예시**:
+
+| 작업 유형 | 좋은 종료 조건 | 피할 조건 |
+|----------|--------------|----------|
+| 테스트 통과 | `pytest -x exit 0` | "테스트가 잘 돌 때까지" |
+| 타입 에러 | `tsc --noEmit 에러 0개` | "타입 안정성 확보" |
+| 빌드 산출물 | `dist/main.js 파일 존재` | "빌드 성공" (모호) |
+| 린트 | `eslint . exit 0` | "코드 클린업" |
+
+**호환성 주의**:
+- Claude Code 2.1.140 미만 + `disableAllHooks` 또는 `allowManagedHooksOnly` 환경에서 silent hang 버그 존재. 해당 환경이면 사용 전 버전을 확인한다.
+
 ### Worktree Management
 
 When the plan includes code changes, create a worktree before the first `code` skill call.

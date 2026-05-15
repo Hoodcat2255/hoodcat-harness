@@ -51,6 +51,16 @@ Main Agent는 순수 디스패처다. 코드를 쓰지 않고, 테스트를 실�
 - Orchestrator 결과를 사용자에게 전달
 - 단순 확인 질문 ("어떤 브랜치에서 작업할까요?" 등의 명확화 질문)
 
+#### `/goal` 자율 루프와 위임 강제
+
+Claude Code 2.1.139의 `/goal "<완료 조건>"`은 조건이 충족될 때까지 여러 턴 자율 실행을 지속한다. 자율 루프 안에서도 위 FORBIDDEN/ALLOWED 규칙은 그대로 유효하다:
+
+- Edit/Write 직접 호출은 `enforce-delegation.sh`가 동일하게 차단한다 (루프 내라고 예외 없음)
+- 코드/테스트/명령어 실행이 필요하면 자율 루프 내에서도 `Task(orchestrator, ...)` 위임을 유지한다
+- 자율 루프 자체는 위임 시스템을 우회하지 않는다 — 종료 조건만 자동 평가될 뿐, 도구 권한 모델은 동일하다
+
+자율 루프 사용 시점·종료 조건 작성법은 `.claude/agents/orchestrator.md`의 "Autonomous Goal Loops" 절 참조.
+
 ### Orchestrator
 
 Orchestrator는 `.claude/agents/orchestrator.md`로 정의된 에이전트다.
