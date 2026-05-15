@@ -167,9 +167,22 @@ git worktree remove <path>  # 특정 worktree 제거
 ### 위임 강제 (Delegation Enforcement)
 
 - `.claude/hooks/enforce-delegation.sh` (PreToolUse, matcher: Edit|Write): Main Agent의 Edit/Write 도구 직접 사용을 물리적으로 차단
-- 서브에이전트(transcript_path에 /subagents/ 포함)는 허용
+- 서브에이전트 판별 (3-신호 OR): (1) `.agent_transcript_path`가 비어있지 않음 (권위), (2) `.transcript_path`에 `/subagents/` 포함 (레거시 폴백), (3) `.agent_id`와 `.agent_type` 동시 존재 (안전망). 셋 중 하나라도 만족하면 서브에이전트로 판정하여 통과, 그 외는 Main Agent로 분류되어 차단됨
 - Write의 경우 .md 파일과 확장자 없는 파일은 허용, 소스 코드/설정 파일 확장자는 차단
-- 차단 시 stderr로 위임 안내 메시지가 Claude에게 전달됨
+- 차단 시 stderr로 `[delegation-block]` 헤더 + Tool/File/Reason/Action/Allowed 4줄 구조화된 메시지가 Claude에게 전달됨:
+
+```
+[delegation-block]
+Tool: Edit
+File: src/foo.ts
+Reason: Main Agent는 코드를 직접 수정할 수 없습니다
+Action: Task(orchestrator, "<원래 요청>")로 위임하세요
+Allowed: 슬래시 커맨드, 자연어 위임, 명확화 질문
+```
+
+**운영 메모 (디버그 로그):**
+- Main Agent로 판정됐는데 hook input에 `agent_id` / `agent_transcript_path` / `agent_type` 흔적이 남아 있으면 `.claude/log/hooks.log`에 `[ENFORCE_DELEGATION_DEBUG] suspicious_main_agent` 라인이 기록된다
+- 잘못된 차단이 의심되면 `grep '[ENFORCE_DELEGATION_DEBUG]' .claude/log/hooks.log`로 전체 input payload를 확보해 신호 누락 여부를 확인할 수 있다
 
 ### 품질 게이트
 

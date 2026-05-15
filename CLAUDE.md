@@ -33,6 +33,7 @@ Main Agent가 직접 코드를 수정하지 못하도록 다층 방어를 적용
 
 1. **프롬프트 규칙** (`harness.md`): 자기 검증 체크리스트 + FORBIDDEN/ALLOWED 행위 정의
 2. **PreToolUse 훅** (`enforce-delegation.sh`): Main Agent의 Edit/Write 도구 사용을 물리적으로 차단. 서브에이전트는 허용.
+   - 서브에이전트 판별 (3-신호 OR): (1) `.agent_transcript_path`가 비어있지 않음 (권위), (2) `.transcript_path`에 `/subagents/` 포함 (레거시 폴백), (3) `.agent_id`와 `.agent_type` 동시 존재 (안전망). 셋 중 하나라도 만족하면 서브에이전트로 판정, 그 외는 Main Agent로 분류되어 차단 로직 적용.
 3. **Orchestrator 자체 규칙**: Orchestrator가 직접 코드를 쓰지 않고 워커 스킬에 위임
 
 ## 주요 스킬 (12개)
