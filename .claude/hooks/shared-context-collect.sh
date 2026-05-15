@@ -20,6 +20,16 @@ log() {
   echo "[$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")] SHARED_CTX_COLLECT: $1" >> "$LOG_FILE"
 }
 
+# Capitalize first letter (bash 3.2 compatible; macOS default bash lacks ${var^})
+capitalize_first() {
+  local s="$1"
+  [ -z "$s" ] && { echo ""; return 0; }
+  local first rest
+  first=$(printf '%s' "${s:0:1}" | tr '[:lower:]' '[:upper:]')
+  rest="${s:1}"
+  printf '%s%s' "$first" "$rest"
+}
+
 # stdin from hook input
 INPUT=$(cat)
 
@@ -32,10 +42,52 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // ""' 2>/dev/null || echo "")
 AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // ""' 2>/dev/null || echo "")
 AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // ""' 2>/dev/null || echo "")
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.agent_transcript_path // ""' 2>/dev/null || echo "")
+# Future-proof: if a direct parent_agent_id field is ever introduced, use it.
+PARENT_AGENT_ID_DIRECT=$(echo "$INPUT" | jq -r '.parent_agent_id // ""' 2>/dev/null || echo "")
 
 if [ -z "$SESSION_ID" ]; then
   log "WARN: session_id missing, skipping"
   exit 0
+fi
+
+# --- Parent ID inference from agent_transcript_path directory pattern ---
+# Claude Code does not currently expose a direct parent_agent_id field.
+# transcript layout (observed):
+#   .../{root_session_id}.jsonl                                                  (main agent)
+#   .../{root_session_id}/subagents/{this_id}.jsonl                              (1st level fork)
+#   .../{root_session_id}/subagents/{parent_id}/subagents/{this_id}.jsonl        (nested fork)
+# Rule: parent transcript = dirname(parent_dir) + ".jsonl" when parent_dir ends with /subagents
+# Parent id is then basename of grandparent_dir (regardless of nesting depth, since each
+# level's transcript filename is the agent id).
+infer_parent_id() {
+  local agent_path="$1"
+  [ -z "$agent_path" ] && return 0
+  local parent_dir
+  parent_dir=$(dirname "$agent_path")
+  case "$parent_dir" in
+    */subagents)
+      local grandparent_dir
+      grandparent_dir=$(dirname "$parent_dir")
+      basename "$grandparent_dir"
+      ;;
+    *)
+      # Not a forked subagent (root main session transcript) — no parent inferable
+      echo ""
+      ;;
+  esac
+}
+
+# Expand ~ for parent inference (needed both for transcript fallback and parent calc)
+TRANSCRIPT_PATH_EXPANDED="${TRANSCRIPT_PATH/#\~/$HOME}"
+
+PARENT_INFERRED="false"
+if [ -n "$PARENT_AGENT_ID_DIRECT" ]; then
+  PARENT_ID="$PARENT_AGENT_ID_DIRECT"
+else
+  PARENT_ID="$(infer_parent_id "$TRANSCRIPT_PATH_EXPANDED")"
+  if [ -n "$PARENT_ID" ]; then
+    PARENT_INFERRED="true"
+  fi
 fi
 
 CONTEXT_DIR="$CONTEXT_BASE/$SESSION_ID"
@@ -47,7 +99,45 @@ AGENT_CTX_FILE="$CONTEXT_DIR/${AGENT_TYPE}-${AGENT_ID}.md"
 SUMMARY_FILE="$CONTEXT_DIR/_summary.md"
 LOCK_FILE="$CONTEXT_DIR/.lock"
 
+# Precompute capitalized form for headers (bash 3.2 safe)
+AGENT_TYPE_CAP=$(capitalize_first "$AGENT_TYPE")
+
 log "Collecting context: session=$SESSION_ID agent=$AGENT_TYPE id=$AGENT_ID"
+
+# --- Step 0: Append to call-graph.jsonl (append-only, atomic per-line) ---
+# Stores inferred parent -> child relationships for later analysis.
+# Independent of _summary.md and transcript parsing; runs first so that even if
+# downstream legacy logic errors out under set -e, the graph entry is preserved.
+CALL_GRAPH_FILE="$CONTEXT_DIR/call-graph.jsonl"
+if [ -n "$AGENT_ID" ] && command -v jq &>/dev/null; then
+  GRAPH_LINE=$(jq -cn \
+    --arg agent_id "$AGENT_ID" \
+    --arg agent_type "$AGENT_TYPE" \
+    --arg parent_id "$PARENT_ID" \
+    --arg parent_inferred "$PARENT_INFERRED" \
+    --arg transcript_path "$TRANSCRIPT_PATH" \
+    --arg timestamp "$(date -u +"%Y-%m-%dT%H:%M:%SZ")" \
+    '{
+      agent_id: $agent_id,
+      agent_type: $agent_type,
+      parent_id: $parent_id,
+      parent_inferred: ($parent_inferred == "true"),
+      transcript_path: $transcript_path,
+      timestamp: $timestamp
+    }' 2>/dev/null || echo "")
+
+  if [ -n "$GRAPH_LINE" ]; then
+    if command -v flock &>/dev/null; then
+      (
+        flock -w 5 201 || { log "WARN: call-graph lock timeout, skipping graph line"; exit 0; }
+        printf '%s\n' "$GRAPH_LINE" >> "$CALL_GRAPH_FILE"
+      ) 201>"$CONTEXT_DIR/.call-graph.lock"
+    else
+      printf '%s\n' "$GRAPH_LINE" >> "$CALL_GRAPH_FILE"
+    fi
+    log "Call graph appended: agent=$AGENT_ID parent=${PARENT_ID:-<none>} inferred=$PARENT_INFERRED"
+  fi
+fi
 
 # --- Step 1: Check for voluntary agent context file ---
 HAS_VOLUNTARY=false
@@ -62,8 +152,7 @@ if [ "$HAS_VOLUNTARY" = false ]; then
 
   MAX_LINES=$(jq -r '.max_transcript_lines // 500' "$CONFIG_FILE" 2>/dev/null || echo 500)
 
-  # Expand ~ in transcript path
-  TRANSCRIPT_PATH_EXPANDED="${TRANSCRIPT_PATH/#\~/$HOME}"
+  # TRANSCRIPT_PATH_EXPANDED already computed above for parent inference
 
   if [ -n "$TRANSCRIPT_PATH_EXPANDED" ] && [ -f "$TRANSCRIPT_PATH_EXPANDED" ]; then
     # Extract file changes from transcript (Write/Edit tool calls)
@@ -78,7 +167,7 @@ if [ "$HAS_VOLUNTARY" = false ]; then
     if [ -n "$CHANGES" ]; then
       # Create a minimal context file from transcript data
       {
-        echo "## ${AGENT_TYPE^} Report (auto-extracted)"
+        echo "## ${AGENT_TYPE_CAP} Report (auto-extracted)"
         echo ""
         echo "### Files Modified"
         echo "$CHANGES"
@@ -90,7 +179,7 @@ if [ "$HAS_VOLUNTARY" = false ]; then
       log "No file changes found in transcript"
       # Create minimal placeholder
       {
-        echo "## ${AGENT_TYPE^} Report (auto-extracted)"
+        echo "## ${AGENT_TYPE_CAP} Report (auto-extracted)"
         echo ""
         echo "### Summary"
         echo "- Agent completed with no detected file changes"
@@ -102,7 +191,7 @@ if [ "$HAS_VOLUNTARY" = false ]; then
     log "Transcript not found or empty: $TRANSCRIPT_PATH_EXPANDED"
     # Create minimal record even without transcript
     {
-      echo "## ${AGENT_TYPE^} Report"
+      echo "## ${AGENT_TYPE_CAP} Report"
       echo ""
       echo "### Summary"
       echo "- Agent completed (no detailed context available)"
