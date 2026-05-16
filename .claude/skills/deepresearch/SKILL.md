@@ -22,6 +22,8 @@ agent: researcher
 
 $ARGUMENTS에 대해 **단일 메시지에서 5-7개 검색을 병렬 실행**한다:
 
+> 자료 등급 우선순위는 `.claude/rules/source-hierarchy.md`를 따른다. 검색 결과에서 Tier 1 후보(법령 원문, 공식 공고문, 공식 API 응답, 1차 출판물)를 먼저 식별한다.
+
 ```
 동시 실행:
 ├── WebSearch: "$ARGUMENTS comprehensive guide !`date +%Y`"
@@ -43,6 +45,8 @@ $ARGUMENTS에 대해 **단일 메시지에서 5-7개 검색을 병렬 실행**�
 - `gh issue view {number} -R {owner}/{repo}` - 주요 이슈 상세 조회
 
 Bash는 gh 명령 전용. 다른 시스템 명령 금지.
+
+도메인이 법령/세무/의료/주거/금융 등 1차 자료 존재 도메인이면, 공식 정부/기관 사이트(예: 청약Home, 국세청, 식약처, 금융감독원, 국가법령정보센터)를 추가로 직접 확인한다. Tier 1 자료가 확보되지 않으면 결과에 "Tier 1 미확인" 명시.
 
 ### 3. 결과 저장
 
@@ -73,8 +77,13 @@ Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 - [포인트 3]
 
 ## 출처
-- [출처 1](URL)
-- [출처 2](URL)
+
+각 출처에 Tier 라벨을 명시한다 (정의는 `.claude/rules/source-hierarchy.md` 참조):
+
+- (Tier 1) [출처 1 — 공고문/법령/공식 API](URL)
+- (Tier 2) [출처 2 — 공식 FAQ/보도자료](URL)
+- (Tier 3) [출처 3 — 언론사 기사](URL)
+- (Tier 4) [출처 4 — 일반 블로그](URL)
 ```
 
 유의미한 출처가 3개 미만이면 검색 키워드를 변형하여 추가 검색한다.

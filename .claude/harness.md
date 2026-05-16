@@ -172,6 +172,15 @@ git worktree remove <path>  # 특정 worktree 제거
 - 텍스트 보고("통과했습니다")를 신뢰하지 않는다
 - `.claude/hooks/verify-build-test.sh`로 프로젝트별 빌드/테스트 자동 실행 가능
 
+## 사실 검증 & 사용자 반박 대응
+
+사실 진술이 포함된 모든 에이전트는 자료 등급 규칙과 인식적 정직 규칙을 따른다. 사용자 직관이 에이전트 결론과 충돌할 때는 단정형 답변을 보류하고 1차 자료를 재확인한다.
+
+- 자료 등급(Source Hierarchy) Tier 1~4 정본: `.claude/rules/source-hierarchy.md`. 1차 자료 도달 강제 도메인(법률·청약·세무·의료·금융 등) 목록과 Tier 1 도달 불가 시 fallback 규칙을 정의한다.
+- 단정 회피·자신감 라벨(`확실`/`추정`/`모름`)·비유 사용 제약 정본: `.claude/rules/epistemic-honesty.md`. 모든 사실 주장에 Tier 라벨과 자신감 라벨을 동반한다.
+- 사용자 반박 키워드 감지 시 자동 Self-Check 5문항 + 미충족 시 deepresearch 호출 메커니즘은 `.claude/agents/orchestrator.md`의 `## Self-Check on Pushback` 및 `## Pushback Trigger` 절에 정의되어 있다. researcher 에이전트에도 동일 절이 있다.
+- 도메인 사전 확률 가중치(사용자 직관이 옳았던 사례) 누적: `.claude/agent-memory/orchestrator/lessons-learned.md`.
+
 ## 훅
 
 ### 위임 강제 (Delegation Enforcement)

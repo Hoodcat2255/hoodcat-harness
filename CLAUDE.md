@@ -14,8 +14,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일, 12개)
 - `.claude/agents/` - 커스텀 에이전트 정의 (8개)
 - `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 위임 강제, 텔레그램 알림 등)
-- `.claude/rules/` - 언어별 안티패턴 규칙 (Python, TypeScript, General)
-- `.claude/agent-memory/` - 에이전트별 영속 메모리 저장소 (세션 간 지식 축적)
+- `.claude/rules/` - 공통 규칙 파일 5개: 안티패턴 3종(Python, TypeScript, General) + `source-hierarchy.md`(자료 등급 Tier 1~4 정본) + `epistemic-honesty.md`(단정 회피·자신감 라벨·비유 제약 정본)
+- `.claude/agent-memory/` - 에이전트별 영속 메모리 저장소 (세션 간 지식 축적, 예: `orchestrator/lessons-learned.md`에 사용자 직관 옳았던 사례·도메인 사전 확률 가중치 누적)
 - `.claude/shared-context/` - 에이전트 간 공유 컨텍스트 저장소 (런타임 생성, .gitignore)
 - `.claude/shared-context-config.json` - 공유 컨텍스트 설정 (TTL, 최대 항목 수 등)
 - `docs/` - 기능 문서 및 리서치 결과 저장
@@ -35,6 +35,15 @@ Main Agent가 직접 코드를 수정하지 못하도록 다층 방어를 적용
 2. **PreToolUse 훅** (`enforce-delegation.sh`): Main Agent의 Edit/Write 도구 사용을 물리적으로 차단. 서브에이전트는 허용.
    - 서브에이전트 판별 (3-신호 OR): (1) `.agent_transcript_path`가 비어있지 않음 (권위), (2) `.transcript_path`에 `/subagents/` 포함 (레거시 폴백), (3) `.agent_id`와 `.agent_type` 동시 존재 (안전망). 셋 중 하나라도 만족하면 서브에이전트로 판정, 그 외는 Main Agent로 분류되어 차단 로직 적용.
 3. **Orchestrator 자체 규칙**: Orchestrator가 직접 코드를 쓰지 않고 워커 스킬에 위임
+
+## 사용자 반박 대응 메커니즘
+
+사용자 직관과 에이전트 결론이 충돌할 때의 동작 규칙입니다. 학습 데이터의 일반론(Tier 4)이 사용자의 1차 자료 기반 직관과 충돌하는 경우, 에이전트는 단정형 답변 대신 자가 점검 후 1차 자료를 재확인합니다.
+
+- 자료 등급(Source Hierarchy) Tier 1~4의 정본은 `.claude/rules/source-hierarchy.md`에 있습니다. 법률·청약·세무·의료·금융 등 1차 자료 도달 강제 도메인 목록도 같은 파일에서 관리합니다.
+- 단정 회피·자신감 라벨(`확실`/`추정`/`모름`)·비유 사용 제약의 정본은 `.claude/rules/epistemic-honesty.md`에 있습니다. 모든 사실 진술에 Tier 라벨과 자신감 라벨을 동반합니다.
+- 사용자 반박 키워드(예: "정말?", "확실해?", "근거는?", "내 생각엔 X인데") 감지 시 자동 Self-Check 5문항을 수행하고 한 문항이라도 No이면 deepresearch를 호출해 1차 자료를 재확인하는 메커니즘은 `.claude/agents/orchestrator.md`의 `## Self-Check on Pushback` 및 `## Pushback Trigger` 절에 정의되어 있습니다. researcher 에이전트(`.claude/agents/researcher.md`)에도 동일한 Self-Check 절이 있습니다.
+- 도메인별 사전 확률 가중치(사용자 직관이 옳았던 사례·반복 패턴)는 `.claude/agent-memory/orchestrator/lessons-learned.md`에 누적되며, 반박 대응 시 참고됩니다.
 
 ## 주요 스킬 (12개)
 
