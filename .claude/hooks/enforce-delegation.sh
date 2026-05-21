@@ -7,6 +7,14 @@
 #   3. .agent_id 와 .agent_type 이 모두 비어있지 않음 (안전망)
 #
 # exit 0 = 허용, exit 2 = 차단 (stderr가 Claude에게 피드백)
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: hoodcat 고유 안전망으로 유지.
+# OMC는 위임 강제를 글로벌 룰(CLAUDE.md)로 처리하지만 hoodcat의 PreToolUse 차단 메커니즘은 부가 안전망.
+# 단, OMC executor를 정당한 서브에이전트로 인식하도록 3-신호 OR 판별을 검토·패치 필요할 수 있음.
+# (현재: agent_transcript_path / transcript_path /subagents/ / agent_id+agent_type 동시 존재)
+# OMC executor가 위 세 신호 중 하나라도 만족하는지 Phase 5에서 회귀 테스트.
+# 매핑 신뢰도: 유지 (대체 없음) — hoodcat 고유 기능.
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
 
 set -euo pipefail
 

@@ -2,6 +2,13 @@
 # Build & Test Verifier - 프로젝트 언어를 감지하고 빌드/테스트를 실행한다.
 # 워크플로우 스킬 내부에서 Bash로 호출한다.
 # exit 0 = 성공, exit 1 = 실패
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC verifier 에이전트 또는 /oh-my-claudecode:verify 스킬로 대체.
+# 호출: Agent(subagent_type="oh-my-claudecode:verifier", model="sonnet", prompt="build & test verification")
+# 또는 사용자 명령으로 /oh-my-claudecode:verify 직접 실행.
+# 프로젝트별 빌드/테스트 명령 자동 감지는 verifier가 동등 기능 제공.
+# 매핑 신뢰도: 중간.
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
 
 set -euo pipefail
 

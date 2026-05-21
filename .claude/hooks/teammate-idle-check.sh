@@ -2,6 +2,12 @@
 # TeammateIdle Hook - 팀원이 유휴 상태로 전환될 때 실행
 # 미완료 태스크가 남아있는 팀원이 유휴 상태가 되면 작업 재개를 유도한다.
 # exit 0 = 유휴 허용, exit 2 = 피드백 전송 + 작업 계속
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC team 워크플로의 내장 idle 체크로 대체 가능성.
+# 또는 omc-teams의 tmux pane 모니터링으로 대체.
+# 호출: /oh-my-claudecode:team 사용 시 자동 idle 감지. 별도 스크립트 불필요.
+# 매핑 신뢰도: 낮음 (OMC team의 idle 정책이 hoodcat과 동등한지 Phase 5 검증 필요).
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
 
 set -euo pipefail
 

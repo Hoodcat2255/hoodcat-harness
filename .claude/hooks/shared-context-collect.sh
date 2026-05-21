@@ -5,6 +5,13 @@
 # 3. Update _summary.md with flock for concurrent safety
 # exit 0 guaranteed - never blocks subagent shutdown
 
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: 글로벌 OMC notepad write / shared-memory write로 대체.
+# 호출: 에이전트가 작업 종료 직전 mcp__plugin_oh-my-claudecode_t__notepad_write_* / shared_memory_write 직접 호출.
+# SubagentStop 시점 자동 수집이 필요하면 OMC SubagentStop 훅 + state_write.
+# 매핑 신뢰도: 중간.
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3·5절.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

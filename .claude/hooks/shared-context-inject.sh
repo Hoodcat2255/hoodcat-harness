@@ -4,6 +4,13 @@
 # outputs JSON with additionalContext containing shared context + write instructions.
 # exit 0 guaranteed - never blocks subagent startup
 
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: 글로벌 OMC notepad/shared-memory MCP 도구로 대체.
+# 호출: 에이전트가 mcp__plugin_oh-my-claudecode_t__notepad_read / shared_memory_read 직접 호출.
+# SubagentStart 시점에 자동 inject가 필요하면 OMC의 SubagentStart 훅 + state_read 활용.
+# 매핑 신뢰도: 중간 (TTL·gc 정책이 shared-context-config.json과 호환되는지 검증 필요).
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3·5절.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -5,6 +5,12 @@
 # 기타 에이전트: 간결한 완료 알림 메시지 전송.
 # 안전성: 어떤 상황에서도 exit 0으로 종료한다.
 
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: 글로벌 telegram plugin (claude-plugins-official:telegram) 사용으로 대체.
+# 호출: settings.json의 SubagentStop 훅 자리에 plugin이 자동 알림. 별도 스크립트 불필요.
+# 매핑 신뢰도: 높음 (글로벌 settings.json에서 이미 telegram plugin 활성화됨).
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

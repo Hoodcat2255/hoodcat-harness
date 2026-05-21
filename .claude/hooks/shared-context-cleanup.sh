@@ -2,6 +2,13 @@
 # SessionStart Hook - Shared Context: TTL-expired session cleanup + current session init
 # exit 0 guaranteed - never blocks session startup
 
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC state_clear (session-scoped) 또는 notepad_prune으로 대체.
+# 호출: SessionStart 시점에 mcp__plugin_oh-my-claudecode_t__state_clear(mode=..., session_id=...).
+# TTL 만료 정책은 OMC 표준 정책 따름 (.omc/state/sessions/* 자동 청소).
+# 매핑 신뢰도: 중간.
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3·5절.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

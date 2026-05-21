@@ -2,6 +2,13 @@
 # TaskCompleted Hook - 태스크 완료 전 빌드/테스트 자동 검증
 # 에이전트팀의 팀원이 태스크를 완료(TaskUpdate status=completed)할 때 실행된다.
 # exit 0 = 완료 허용, exit 2 = 완료 차단 + 피드백 전송
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC verifier 에이전트 호출로 대체.
+# 호출: Agent(subagent_type="oh-my-claudecode:verifier", model="sonnet", prompt="task verification")
+# 또는 /oh-my-claudecode:verify 스킬 사용.
+# TaskCompleted 자동 트리거가 필요하면 OMC의 동일 이벤트 훅에서 verifier 호출.
+# 매핑 신뢰도: 중간 (빌드/테스트 자동 검증 동등성은 verifier prompt에 명시 필요).
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
 
 set -euo pipefail
 

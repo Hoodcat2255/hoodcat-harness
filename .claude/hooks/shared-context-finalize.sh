@@ -2,6 +2,12 @@
 # SessionEnd Hook - Shared Context: finalize session summary with metrics
 # exit 0 guaranteed - never blocks session shutdown
 
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC SessionEnd 훅 + state_write로 메트릭 기록 또는 wiki ingest로 대체.
+# 호출: SessionEnd 시점에 mcp__plugin_oh-my-claudecode_t__state_write 또는 wiki_add.
+# 매핑 신뢰도: 중간.
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3·5절.
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

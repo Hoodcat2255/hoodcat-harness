@@ -2,6 +2,11 @@
 # SubagentStop Monitor - 서브에이전트 종료 이벤트를 로깅한다.
 # 차단하지 않음 - 서브에이전트는 자연스럽게 종료된다.
 # 추가: agent_transcript_path 디렉토리 패턴에서 parent_id를 추론하여 로깅에 포함.
+# === OMC 호환 매핑 (Phase 4) ===
+# OMC 전환 시: OMC trace_* 도구 또는 SubagentStop 훅 + state_write로 대체.
+# 호출: mcp__plugin_oh-my-claudecode_t__trace_summary / trace_timeline 으로 서브에이전트 종료 이벤트 분석.
+# 매핑 신뢰도: 중간 (call-graph 기록 동등성 검증 필요).
+# 자세한 사항: docs/migration-omc-mapping-20260522.md 3절.
 
 set -euo pipefail
 
