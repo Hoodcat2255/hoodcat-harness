@@ -17,3 +17,4 @@ claude-dashboard 실데이터 분석 결과, 오케스트레이터가 스킬/에
 - [x] 필수 위임 규칙 추가 (REQUIRED: Skill("code"), Skill("test"), Skill("commit"))
 - [x] 리뷰 에이전트 활용 규칙 추가 (3+ 파일 변경 또는 보안 관련 시 Task(reviewer) 의무)
 - [ ] 변경 후 실제 세션에서 위임율 개선 여부 검증
+- [ ] Small-Change Exceptions 절 적용 후 위임율·오버헤드 트레이드오프 재측정 (.md 1줄 수정 케이스 직접 처리율)
