@@ -1,5 +1,5 @@
 {
-  "_comment": "OMC 전환 후 settings.json 예시 (Phase 4). 본 파일은 참고용이며 실제 swap은 Phase 5 검증 후 사용자 결정. 자세한 사항은 docs/migration-omc-mapping-20260522.md 3·6절 참조.",
+  "_comment": "OMC 전환 후 settings.json 예시. 본 파일은 참고용이며 실제 swap은 운영 검증 통과 후 사용자 결정. 자세한 사항은 docs/migration-omc-mapping-20260522.md 3·6절 참조.",
   "_omc_migration_notes": {
     "removed_hooks_with_reason": {
       "shared-context-cleanup (SessionStart)": "OMC notepad_prune / state_clear가 session-scoped 자동 정리 제공",
@@ -9,16 +9,14 @@
       "subagent-monitor (SubagentStop)": "OMC trace_summary / trace_timeline이 동등 기능 제공",
       "notify-telegram (SubagentStop)": "글로벌 ~/.claude/settings.json의 telegram plugin이 처리",
       "task-quality-gate (TaskCompleted)": "Agent(verifier) 또는 /oh-my-claudecode:verify 명시적 호출로 대체",
-      "teammate-idle-check (TeammateIdle)": "OMC team / omc-teams 워크플로의 내장 idle 감지"
-    },
-    "preserved_hooks_with_reason": {
-      "enforce-delegation (PreToolUse Edit|Write)": "hoodcat 고유 안전망. OMC 글로벌 룰(CLAUDE.md)과 별도. OMC executor를 정당 서브에이전트로 인식하는지 Phase 5 회귀 테스트 필요."
+      "teammate-idle-check (TeammateIdle)": "OMC team / omc-teams 워크플로의 내장 idle 감지",
+      "enforce-delegation (PreToolUse Edit|Write)": "위임 강제 시스템 자체를 옵션 A로 제거함 (글로벌 권고만 유지)"
     },
     "verification_before_swap": [
       "OMC notepad TTL이 shared-context-config.json과 호환되는지 확인",
-      "enforce-delegation.sh의 3-신호 OR 판별이 OMC executor 서브에이전트를 인식하는지 회귀 테스트",
       "글로벌 telegram plugin이 SubagentStop을 실제로 받는지 알림 테스트",
-      "task-quality-gate 자동 트리거가 사라진 후 verifier 명시 호출로 동등한 검증 강도가 유지되는지 운영 검증"
+      "task-quality-gate 자동 트리거가 사라진 후 verifier 명시 호출로 동등한 검증 강도가 유지되는지 운영 검증",
+      "OMC team의 TeammateIdle 이벤트 내장 처리 확인"
     ]
   },
   "permissions": {
@@ -29,19 +27,5 @@
     "command": "$CLAUDE_PROJECT_DIR/.claude/statusline.sh",
     "padding": 1
   },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-delegation.sh",
-            "args": [],
-            "timeout": 5
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

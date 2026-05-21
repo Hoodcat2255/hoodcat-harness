@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일, 12개)
 - `.claude/agents/` - 커스텀 에이전트 정의 (8개)
-- `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 위임 강제, 텔레그램 알림 등)
+- `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 텔레그램 알림 등)
 - `.claude/rules/` - 공통 규칙 파일 5개: 안티패턴 3종(Python, TypeScript, General) + `source-hierarchy.md`(자료 등급 Tier 1~4 정본) + `epistemic-honesty.md`(단정 회피·자신감 라벨·비유 제약 정본)
 - `.claude/agent-memory/` - 에이전트별 영속 메모리 저장소 (세션 간 지식 축적, 예: `orchestrator/lessons-learned.md`에 사용자 직관 옳았던 사례·도메인 사전 확률 가중치 누적)
 - `.claude/shared-context/` - 에이전트 간 공유 컨텍스트 저장소 (런타임 생성, .gitignore)
@@ -27,14 +27,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Main Agent는 순수 디스패처로, 슬래시 커맨드만 직접 호출하고 그 외 모든 요청은 Orchestrator에게 위임합니다.
 Orchestrator는 요구를 분석하여 스킬을 동적으로 조합하고 이행합니다.
 
-### 위임 강제 시스템 (3층 방어)
+### 위임 권고
 
-Main Agent가 직접 코드를 수정하지 못하도록 다층 방어를 적용합니다:
-
-1. **프롬프트 규칙** (`harness.md`): 자기 검증 체크리스트 + FORBIDDEN/ALLOWED 행위 정의
-2. **PreToolUse 훅** (`enforce-delegation.sh`): Main Agent의 Edit/Write 도구 사용을 물리적으로 차단. 서브에이전트는 허용.
-   - 서브에이전트 판별 (3-신호 OR): (1) `.agent_transcript_path`가 비어있지 않음 (권위), (2) `.transcript_path`에 `/subagents/` 포함 (레거시 폴백), (3) `.agent_id`와 `.agent_type` 동시 존재 (안전망). 셋 중 하나라도 만족하면 서브에이전트로 판정, 그 외는 Main Agent로 분류되어 차단 로직 적용.
-3. **Orchestrator 자체 규칙**: Orchestrator가 직접 코드를 쓰지 않고 워커 스킬에 위임
+Orchestrator는 가능하면 워커 스킬·에이전트에 작업을 위임한다. 단, 위임은 권고이며 강제하지 않는다. 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 Main Agent·Orchestrator의 직접 처리도 허용된다.
 
 ## 사용자 반박 대응 메커니즘
 
@@ -110,7 +105,6 @@ harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬�
 
 | 훅 | 이벤트 | 용도 |
 |----|--------|------|
-| `enforce-delegation.sh` | PreToolUse (Edit\|Write) | Main Agent의 직접 코드 수정 차단 |
 | `task-quality-gate.sh` | TaskCompleted | 구현 태스크 완료 시 빌드/테스트 자동 검증 |
 | `teammate-idle-check.sh` | TeammateIdle | 미완료 팀원 유휴 시 작업 재개 유도 |
 | `verify-build-test.sh` | - | 프로젝트별 빌드/테스트 자동 실행 |

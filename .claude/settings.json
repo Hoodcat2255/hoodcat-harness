@@ -96,19 +96,6 @@
           }
         ]
       }
-    ],
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/enforce-delegation.sh",
-            "args": [],
-            "timeout": 5
-          }
-        ]
-      }
     ]
   }
 }

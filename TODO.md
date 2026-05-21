@@ -1,23 +1,16 @@
-# 오케스트레이터 위임율 개선
+# 오케스트레이터 위임율 개선 (종결, 2026-05-22)
 
-claude-dashboard 실데이터 분석 결과, 오케스트레이터가 스킬/에이전트 위임 없이 직접 코드를 수정하는 비율이 98.7%임.
-(18개 인스턴스, Skill 7회 vs 직접 도구 537회, 리뷰 에이전트 스폰 0회)
+> 결말: 옵션 A로 위임 강제 시스템 전체를 폐지함. 본 절은 역사적 기록.
 
-## 원인
+claude-dashboard 실데이터 분석 결과 오케스트레이터가 스킬/에이전트 위임 없이 직접 코드를 수정하는 비율이 98.7%였음 (18개 인스턴스, Skill 7회 vs 직접 도구 537회, 리뷰 에이전트 스폰 0회). FORBIDDEN/REQUIRED 표 + PreToolUse 차단 훅(enforce-delegation.sh)으로 강제하는 안전망을 도입했으나, 작은 변경에 대한 오버헤드와 OMC 전환 호환성 부담을 고려해 2026-05-22 옵션 A로 시스템 전체 폐지. 글로벌 ~/.claude/CLAUDE.md 의 "delegate, don't code" 권고만 남음.
 
-- orchestrator.md에 Edit/Write 도구 권한이 있어서 직접 수정 가능
-- "delegate, don't code" 지시가 있지만 도구가 있으면 직접 실행하는 경향
-- 소규모 프로젝트에서 위임 오버헤드를 회피
-
-## 할 일
-
-- [x] orchestrator.md에서 Edit 도구 제거 (소스코드 직접 수정 불가하게)
-- [x] Write는 .md 파일만 허용하도록 프롬프트에 명시
-- [x] 소스코드 수정 금지 규칙 추가 (FORBIDDEN: Edit on .py/.html/.js/.ts/.css + 40개 확장자)
-- [x] 필수 위임 규칙 추가 (REQUIRED: Skill("code"), Skill("test"), Skill("commit"))
-- [x] 리뷰 에이전트 활용 규칙 추가 (3+ 파일 변경 또는 보안 관련 시 Task(reviewer) 의무)
-- [ ] 변경 후 실제 세션에서 위임율 개선 여부 검증
-- [ ] Small-Change Exceptions 절 적용 후 위임율·오버헤드 트레이드오프 재측정 (.md 1줄 수정 케이스 직접 처리율)
+옵션 A 폐지 시점에 진행된 정리:
+- orchestrator.md의 `## Delegation Enforcement (ABSOLUTE RULES)` 절 전체 제거 (FORBIDDEN/REQUIRED/Review Agent Activation/Small-Change Exceptions/Self-Check)
+- harness.md의 FORBIDDEN 행위·위임 강제 절·차단 메시지 예시 제거
+- CLAUDE.md의 "위임 강제 시스템 (3층 방어)" 절을 "위임 권고" 단순 안내로 교체
+- `.claude/hooks/enforce-delegation.sh` 삭제
+- `.claude/settings.json` 의 PreToolUse Edit|Write 훅 등록 제거
+- `.claude/settings-omc.json.example` 갱신 (hooks 빈 객체)
 
 # hoodcat-harness → oh-my-claudecode 전환
 
@@ -34,8 +27,7 @@ claude-dashboard 실데이터 분석 결과, 오케스트레이터가 스킬/에
 
 ## Phase 5+ 운영 검증 항목 (settings.json 실제 swap 전 필수)
 
-- [ ] enforce-delegation.sh 3-신호 OR 판별이 OMC executor 서브에이전트를 인식하는지 회귀 테스트 (최우선)
-- [ ] OMC executor의 광범위 Bash 권한(npm/pytest/cargo/go/make/docker/pip audit/govulncheck/gh) 지원 검증
+- [ ] OMC executor의 광범위 Bash 권한(npm/pytest/cargo/go/make/docker/pip audit/govulncheck/gh) 지원 검증 (최우선)
 - [ ] OMC ultraqa vs hoodcat qa-swarm 기능 동등성 검증 (병렬 스폰 + 결과 통합)
 - [ ] context-mode MCP가 OMC 환경에서 동작하는지 확인 (coder·researcher 의존성)
 - [ ] OMC notepad/shared-memory TTL·gc 정책 호환성 검증 (shared-context-config.json 기준)

@@ -14,50 +14,35 @@ Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
 
 ### Main Agent의 역할
 
-Main Agent는 순수 디스패처다. 코드를 쓰지 않고, 테스트를 실행하지 않고, 직접 분석하거나 판단하지 않는다.
+Main Agent는 디스패처다. 코드 작성·빌드·테스트·심층 분석 같은 실질적 작업은 Orchestrator에 위임하고, 결과를 사용자에게 전달한다.
 
-#### 디스패치 기준 (절대 규칙)
+#### 디스패치 기준
 
 1. **슬래시 커맨드** (`/`로 시작하는 요청) -> 해당 스킬을 Skill()로 직접 호출
-2. **그 외 모든 요청** -> `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임
-
-이 규칙에 예외는 없다. 단순한 질문이든, 1줄 수정이든, "빠르게 확인만" 하는 것이든 상관없다.
+2. **그 외 자연어 요청** -> `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임 (권고)
 
 #### 자기 검증 체크리스트 (매 턴 실행)
 
-응답을 생성하기 전에 반드시 아래를 점검한다:
+응답을 생성하기 전에 아래를 점검한다:
 
 1. **이 요청이 `/`로 시작하는 슬래시 커맨드인가?**
    - YES -> 해당 스킬을 Skill()로 호출
-   - NO -> 반드시 `Task(orchestrator, "$USER_REQUEST")`로 위임. 예외 없음.
-2. **나는 지금 다음 도구를 직접 사용하려 하는가?**
-   - Edit, Write, Bash -> FORBIDDEN. 즉시 중단하고 위임.
-   - Read, Grep, Glob -> FORBIDDEN (파일을 읽고 직접 분석/응답하지 않는다).
-3. **나는 도구 없이 직접 코드를 설명하거나, 버그를 진단하거나, 아키텍처를 분석하려 하는가?**
-   - YES -> FORBIDDEN. 위임.
+   - NO -> 가능하면 `Task(orchestrator, "$USER_REQUEST")`로 위임을 우선한다
+2. **나는 지금 코드 수정·빌드·테스트·심층 분석을 직접 수행하려 하는가?**
+   - 이런 작업은 Orchestrator에 위임하는 것이 품질과 추적성 면에서 낫다
 
-#### FORBIDDEN 행위
-
-- Edit 도구 직접 사용 (PreToolUse 훅이 물리적으로 차단함)
-- Write 도구로 코드/설정 파일 수정 (PreToolUse 훅이 물리적으로 차단함)
-- Bash로 서버 상태 확인, 빌드, 테스트, 명령어 실행
-- Read/Grep/Glob로 파일을 읽고 직접 분석하여 응답
-- 도구 없이 코드 설명, 버그 진단, 아키텍처 분석
-
-#### ALLOWED 행위
+#### 권고 행위
 
 - 슬래시 커맨드 -> Skill() 호출
-- 자연어 요청 -> Task(orchestrator, ...) 위임
+- 자연어 요청 -> Task(orchestrator, ...) 위임 (단, 단순 안내·명확화 질문은 직접 처리 가능)
 - Orchestrator 결과를 사용자에게 전달
 - 단순 확인 질문 ("어떤 브랜치에서 작업할까요?" 등의 명확화 질문)
 
-#### `/goal` 자율 루프와 위임 강제
+> Main Agent는 디스패처 역할을 유지한다. 자연어 요청은 가능하면 `Task(orchestrator, ...)`로 위임하되, 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 직접 처리 가능. 위임 권고는 어디까지나 권고이며, 강제 차단 메커니즘은 없다.
 
-Claude Code 2.1.139의 `/goal "<완료 조건>"`은 조건이 충족될 때까지 여러 턴 자율 실행을 지속한다. 자율 루프 안에서도 위 FORBIDDEN/ALLOWED 규칙은 그대로 유효하다:
+#### `/goal` 자율 루프
 
-- Edit/Write 직접 호출은 `enforce-delegation.sh`가 동일하게 차단한다 (루프 내라고 예외 없음)
-- 코드/테스트/명령어 실행이 필요하면 자율 루프 내에서도 `Task(orchestrator, ...)` 위임을 유지한다
-- 자율 루프 자체는 위임 시스템을 우회하지 않는다 — 종료 조건만 자동 평가될 뿐, 도구 권한 모델은 동일하다
+Claude Code 2.1.139의 `/goal "<완료 조건>"`은 조건이 충족될 때까지 여러 턴 자율 실행을 지속한다. 자율 루프 안에서도 위 디스패치 기준이 그대로 적용된다: 종료 조건만 자동 평가될 뿐, 도구 권한 모델은 동일하다.
 
 자율 루프 사용 시점·종료 조건 작성법은 `.claude/agents/orchestrator.md`의 "Autonomous Goal Loops" 절 참조.
 
@@ -182,26 +167,6 @@ git worktree remove <path>  # 특정 worktree 제거
 - 도메인 사전 확률 가중치(사용자 직관이 옳았던 사례) 누적: `.claude/agent-memory/orchestrator/lessons-learned.md`.
 
 ## 훅
-
-### 위임 강제 (Delegation Enforcement)
-
-- `.claude/hooks/enforce-delegation.sh` (PreToolUse, matcher: Edit|Write): Main Agent의 Edit/Write 도구 직접 사용을 물리적으로 차단
-- 서브에이전트 판별 (3-신호 OR): (1) `.agent_transcript_path`가 비어있지 않음 (권위), (2) `.transcript_path`에 `/subagents/` 포함 (레거시 폴백), (3) `.agent_id`와 `.agent_type` 동시 존재 (안전망). 셋 중 하나라도 만족하면 서브에이전트로 판정하여 통과, 그 외는 Main Agent로 분류되어 차단됨
-- Write의 경우 .md 파일과 확장자 없는 파일은 허용, 소스 코드/설정 파일 확장자는 차단
-- 차단 시 stderr로 `[delegation-block]` 헤더 + Tool/File/Reason/Action/Allowed 4줄 구조화된 메시지가 Claude에게 전달됨:
-
-```
-[delegation-block]
-Tool: Edit
-File: src/foo.ts
-Reason: Main Agent는 코드를 직접 수정할 수 없습니다
-Action: Task(orchestrator, "<원래 요청>")로 위임하세요
-Allowed: 슬래시 커맨드, 자연어 위임, 명확화 질문
-```
-
-**운영 메모 (디버그 로그):**
-- Main Agent로 판정됐는데 hook input에 `agent_id` / `agent_transcript_path` / `agent_type` 흔적이 남아 있으면 `.claude/log/hooks.log`에 `[ENFORCE_DELEGATION_DEBUG] suspicious_main_agent` 라인이 기록된다
-- 잘못된 차단이 의심되면 `grep '[ENFORCE_DELEGATION_DEBUG]' .claude/log/hooks.log`로 전체 input payload를 확보해 신호 누락 여부를 확인할 수 있다
 
 ### 품질 게이트
 

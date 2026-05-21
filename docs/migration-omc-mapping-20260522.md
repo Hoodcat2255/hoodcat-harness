@@ -8,7 +8,7 @@
 
 ## 개요
 
-hoodcat-harness는 Claude Code 위에 얹은 커스텀 2-tier 멀티에이전트 시스템이다. Main Agent(순수 디스패처) → Orchestrator → 워커 스킬·에이전트로 이어지는 구조로, 위임 강제·공유 컨텍스트·에이전트 메모리·텔레그램 알림을 직접 구현해왔다.
+hoodcat-harness는 Claude Code 위에 얹은 커스텀 2-tier 멀티에이전트 시스템이다. Main Agent(순수 디스패처) → Orchestrator → 워커 스킬·에이전트로 이어지는 구조로, 공유 컨텍스트·에이전트 메모리·텔레그램 알림을 직접 구현해왔다 (위임 강제 시스템은 옵션 A로 2026-05-22 폐지됨).
 
 oh-my-claudecode(OMC)는 Claude Code 공식 플러그인 기반의 멀티에이전트 오케스트레이션 레이어로, executor·planner·architect 등 표준 에이전트 카탈로그와 notepad·shared-memory·trace 등 내장 MCP 도구를 제공한다. 전환의 핵심 가치는 hoodcat 고유 인프라 유지 비용을 낮추고, OMC가 제공하는 표준 워크플로(autopilot·ultrawork·ralph·team 등)와 지속적 업데이트를 활용하는 것이다.
 
@@ -18,7 +18,7 @@ oh-my-claudecode(OMC)는 Claude Code 공식 플러그인 기반의 멀티에이�
 
 | hoodcat-harness 에이전트 | OMC 대응 | 매핑 신뢰도 | 비고 |
 |---|---|---|---|
-| orchestrator | planner + 메인 디스패치 | 중간 | OMC는 Claude main agent가 디스패처 역할을 직접 수행. orchestrator의 동적 계획·레시피 조합은 planner로, 위임 강제는 글로벌 룰로 이전. enforce-delegation.sh 회귀 테스트 필요. |
+| orchestrator | planner + 메인 디스패치 | 중간 | OMC는 Claude main agent가 디스패처 역할을 직접 수행. orchestrator의 동적 계획·레시피 조합은 planner로. 위임 강제는 폐지(옵션 A)되어 글로벌 권고만 남음. |
 | coder | executor (model=opus override 가능) | 높음 | OMC executor가 동일 역할(코드 작성·수정·빌드·테스트·패치). context-mode MCP 의존성 별도 검토 필요. |
 | researcher | document-specialist + scientist | 중간 | deepresearch→document-specialist, blueprint/decide의 웹 조사→scientist, Context7 MCP 활용 방식 차이 확인 필요. |
 | committer | git-master | 높음 | OMC commit protocol(HEREDOC 커밋, pre-commit 훅 처리) 활용. 거의 1:1 매핑. |
@@ -54,7 +54,7 @@ settings.json 기준 실제 이벤트 매핑:
 
 | hoodcat-harness 훅 | 이벤트 | OMC 대응 | 비고 |
 |---|---|---|---|
-| enforce-delegation.sh | PreToolUse | OMC 글로벌 룰 + 훅 유지 | OMC는 위임 강제를 룰 차원에서 처리. 3-신호 OR 판별(agent_transcript_path / subagents/ / agent_id+agent_type)이 OMC executor를 서브에이전트로 인식하는지 회귀 테스트 필수. |
+| enforce-delegation.sh | PreToolUse | 제거됨 (옵션 A, 2026-05-22) | 위임 강제 시스템 전체를 폐지. 글로벌 ~/.claude/CLAUDE.md 의 "delegate, don't code" 권고만 남음. OMC 전환 시 호환 부담 0. |
 | shared-context-inject.sh | SubagentStart | OMC shared-memory / notepad | mcp__plugin_oh-my-claudecode_t__shared_memory_read + notepad_read로 대체 가능. additionalContext 주입 방식은 OMC SubagentStart 훅으로 유지 가능. |
 | subagent-monitor.sh | SubagentStop | OMC trace_summary / trace_timeline | trace_summary·trace_timeline MCP 도구로 대체 가능. 로깅 상세도 비교 필요. |
 | shared-context-collect.sh | SubagentStop | OMC shared-memory / notepad | shared_memory_write·notepad_write_working으로 대체 가능. flock 기반 동시성 처리 OMC 내부 메커니즘 확인 필요. |
@@ -129,7 +129,7 @@ settings.json 기준 실제 이벤트 매핑:
   · 매핑 가능 8개: code/test/blueprint/commit/deepresearch/decide/security-scan/qa-swarm (호출 형태·신뢰도 명시)
   · 미매핑·커스텀 유지 3개: deploy/scaffold/sync-docs
   · 이중 매핑 1개: team-review (→ /ultrareview 또는 /oh-my-claudecode:team)
-- 슬래시 커맨드 호환층 작성·enforce-delegation 패치는 Phase 5 운영 검증 후 적용
+- 슬래시 커맨드 호환층 작성은 운영 검증 후 적용 (enforce-delegation 패치는 위임 강제 시스템 폐지로 불필요해짐)
 - 커밋: 69370db
 
 ### Phase 3: 에이전트 프롬프트 OMC 카탈로그 호환 변환 — ✅ 정적 매핑 완료 (2026-05-22)
@@ -166,16 +166,17 @@ settings.json 기준 실제 이벤트 매핑:
 
 | # | 검증 항목 | 영향 | 신뢰도 |
 |---|----------|------|--------|
-| 1 | enforce-delegation.sh의 3-신호 OR 판별이 OMC executor 서브에이전트를 정당하게 인식하는지 (.agent_transcript_path / .transcript_path /subagents/ / .agent_id+.agent_type) | 위임 강제 차단 오류 가능성 | 미검증 |
-| 2 | OMC executor의 광범위 Bash 권한 (npm·pytest·cargo·go·make·docker·pip audit·govulncheck·gh) 지원 여부 | coder 스킬 호환성 | 미검증 |
-| 3 | OMC ultraqa vs hoodcat qa-swarm 기능 동등성 (병렬 에이전트 스폰 + 결과 통합) | qa-swarm 대체 가능 여부 | 미검증 |
-| 4 | context-mode MCP가 OMC 환경에서 동작하는지 (coder·researcher가 mcpServers 선언) | 대용량 출력 처리 호환성 | 미검증 |
-| 5 | OMC notepad/shared-memory TTL·gc 정책이 shared-context-config.json과 호환되는지 | shared-context 4개 훅 swap 가능 여부 | 미검증 |
-| 6 | OMC team 워크플로의 TeammateIdle 이벤트 내장 처리 | teammate-idle-check 대체 가능 여부 | 미검증 |
-| 7 | shared-context-collect.sh의 flock 기반 동시 안전 쓰기 ↔ shared_memory_write 동등성 | 동시성 안전성 | 미검증 |
-| 8 | 글로벌 ~/.claude/settings.json의 telegram plugin이 SubagentStop을 실제 받는지 알림 도달 테스트 | notify-telegram swap 가능 여부 | 미검증 |
-| 9 | verifier 명시 호출 → task-quality-gate 자동 트리거 없이 동등한 검증 강도 유지되는지 운영 관찰 | task-quality-gate swap 영향도 | 미검증 |
-| 10 | OMC analyst가 hoodcat decide의 비교 분석 패턴(trade-off 표·자료 등급)을 동등하게 제공하는지 | decide → analyst 신뢰도 | 미검증 |
+| 1 | OMC executor의 광범위 Bash 권한 (npm·pytest·cargo·go·make·docker·pip audit·govulncheck·gh) 지원 여부 | coder 스킬 호환성 | 미검증 |
+| 2 | OMC ultraqa vs hoodcat qa-swarm 기능 동등성 (병렬 에이전트 스폰 + 결과 통합) | qa-swarm 대체 가능 여부 | 미검증 |
+| 3 | context-mode MCP가 OMC 환경에서 동작하는지 (coder·researcher가 mcpServers 선언) | 대용량 출력 처리 호환성 | 미검증 |
+| 4 | OMC notepad/shared-memory TTL·gc 정책이 shared-context-config.json과 호환되는지 | shared-context 4개 훅 swap 가능 여부 | 미검증 |
+| 5 | OMC team 워크플로의 TeammateIdle 이벤트 내장 처리 | teammate-idle-check 대체 가능 여부 | 미검증 |
+| 6 | shared-context-collect.sh의 flock 기반 동시 안전 쓰기 ↔ shared_memory_write 동등성 | 동시성 안전성 | 미검증 |
+| 7 | 글로벌 ~/.claude/settings.json의 telegram plugin이 SubagentStop을 실제 받는지 알림 도달 테스트 | notify-telegram swap 가능 여부 | 미검증 |
+| 8 | verifier 명시 호출 → task-quality-gate 자동 트리거 없이 동등한 검증 강도 유지되는지 운영 관찰 | task-quality-gate swap 영향도 | 미검증 |
+| 9 | OMC analyst가 hoodcat decide의 비교 분석 패턴(trade-off 표·자료 등급)을 동등하게 제공하는지 | decide → analyst 신뢰도 | 미검증 |
+
+> 옵션 A(위임 강제 시스템 폐지)로 enforce-delegation 회귀 테스트는 검증 대상에서 제외됨 (2026-05-22).
 
 각 항목은 운영 환경에서 1회 이상 실증 테스트 통과 후 매핑 신뢰도를 "검증됨"으로 갱신한다.
 
@@ -188,7 +189,7 @@ settings.json 기준 실제 이벤트 매핑:
 
 **즉시 가능한 다음 단계**:
 - (a) worktree `feat/agent-cleanup` 검토 후 main에 머지
-- (b) 운영 검증 1번 (enforce-delegation 회귀)을 먼저 실행 — 가장 영향도 큰 항목
+- (b) 운영 검증 1번 (OMC executor의 광범위 Bash 권한 지원 여부)을 먼저 실행 — 가장 영향도 큰 항목
 - (c) 운영 검증 통과 시 settings.json을 `settings-omc.json.example` 기반으로 swap
 - (d) hoodcat 스킬·에이전트 .md를 OMC 호출로 점진 교체
 
