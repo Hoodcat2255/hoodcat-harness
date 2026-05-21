@@ -96,3 +96,14 @@ pre-commit hook이 실패하면:
 ## REVIEW 연동
 
 commit은 리뷰 없이 자동 완료한다. 코드 품질 리뷰는 Orchestrator가 /code 이후 Task(reviewer)로 수행한다.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:git-master`로 대체된다.
+
+호출 형태:
+- 일반 커밋: `Agent(subagent_type="oh-my-claudecode:git-master", model="sonnet", prompt="<$ARGUMENTS 또는 변경 분석 요청>")`
+- 복잡한 rebase·history 관리: `model="opus"`로 override
+- git-master는 conventional commit + 스타일 자동 감지 기능 포함.
+
+매핑 신뢰도: 높음. hoodcat committer의 한국어 conventional 패턴은 git-master prompt에 명시 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

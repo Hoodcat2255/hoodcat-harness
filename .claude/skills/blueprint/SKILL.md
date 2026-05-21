@@ -109,3 +109,13 @@ Task(architect): "docs/plans/{project-name}/architecture.md를 리뷰하라"
 ```
 
 architect가 BLOCK을 반환하면 해당 부분을 수정하고 재리뷰한다.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:planner`로 대체된다.
+
+호출 형태:
+- 전략적 계획: `Agent(subagent_type="oh-my-claudecode:planner", model="opus", prompt="<$ARGUMENTS와 같은 기능/프로젝트 설명>")`
+- planner는 항상 opus 사용 (HIGH tier).
+
+매핑 신뢰도: 높음. planner는 hoodcat blueprint와 거의 1:1 매핑. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

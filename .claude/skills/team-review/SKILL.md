@@ -156,3 +156,15 @@ TeamDelete()
 3. Orchestrator는 자체 판단으로 `/ultrareview`를 호출하지 않음. 별도 과금 + 비동기이므로 사용자 의사 명시 필요.
 
 상세 비교 분석: `docs/research-ultrareview-vs-team-review-20260516.md`
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 두 대안 중 선택:
+- `/ultrareview` (Claude Code 공식 슬래시 커맨드, 별도 과금/background 실행) — 사용자가 명시적으로 요청한 경우에만
+- `/oh-my-claudecode:team` 워크플로 — N개 에이전트(reviewer·security·architect) 병렬 리뷰
+
+호출 형태:
+- 일반 다관점 리뷰: `Skill("oh-my-claudecode:team", "code review with reviewer, security, architect agents")`
+- 대규모 PR 검토: `/ultrareview` (사용자 명시 요청 시)
+
+매핑 신뢰도: 중간. team 워크플로의 리뷰 결과 종합 방식이 hoodcat team-review와 동등한지 Phase 5 검증 필요.

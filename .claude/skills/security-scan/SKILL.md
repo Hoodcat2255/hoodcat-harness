@@ -104,3 +104,13 @@ Grep으로 일반적인 보안 안티패턴을 검색한다:
 ```
 Task(security): "보안 스캔에서 발견된 이슈를 평가하라: [이슈 목록]. 실제 위험인지, 오탐인지 판단하라."
 ```
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:security-reviewer`로 대체된다.
+
+호출 형태:
+- OWASP·취약점 스캔: `Agent(subagent_type="oh-my-claudecode:security-reviewer", model="opus", prompt="<$ARGUMENTS와 같은 스캔 대상>")`
+- 단순 의존성 감사: `model="haiku"` (security-reviewer-low tier)
+
+매핑 신뢰도: 중간. hoodcat security 에이전트의 광범위 Bash 권한 (npm audit/pip audit/cargo audit/govulncheck) 호환성은 Phase 5 검증 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

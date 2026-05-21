@@ -97,3 +97,14 @@ Task(navigator): "$ARGUMENTS의 테스트 대상 코드와 기존 테스트를 �
 테스트는 자동 판정한다:
 - **전체 통과**: 자동 PROCEED
 - **실패 있음**: 실패 원인 분석 후, 테스트 코드 문제인지 소스 코드 문제인지 판단하여 보고
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:test-engineer` 또는 `oh-my-claudecode:executor`로 대체된다.
+
+호출 형태:
+- TDD 워크플로: `Agent(subagent_type="oh-my-claudecode:test-engineer", model="sonnet", prompt="<$ARGUMENTS>")`
+- 단순 테스트 실행·회귀: `Agent(subagent_type="oh-my-claudecode:executor", model="sonnet", prompt="<$ARGUMENTS>")`
+- 빠른 테스트 제안: `model="haiku"`
+
+매핑 신뢰도: 중간. test-engineer 기능 동등성은 Phase 5 검증 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

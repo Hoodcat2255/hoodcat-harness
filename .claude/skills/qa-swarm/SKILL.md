@@ -98,3 +98,13 @@ Orchestrator가 새 프로젝트 또는 대규모 변경의 QA 단계에서 qa-s
 
 최대 4개의 별도 Claude 인스턴스를 스폰하므로, 단일 테스트 대비 최대 4배의 토큰을 사용한다.
 테스트 스위트가 하나뿐인 프로젝트에는 기존 /test 스킬을 사용하라.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `/oh-my-claudecode:ultraqa` 워크플로로 대체된다.
+
+호출 형태:
+- 병렬 QA 사이클: `Skill("oh-my-claudecode:ultraqa", "<$ARGUMENTS와 같은 프로젝트 경로 또는 검증 목표>")`
+- ultraqa는 test → verify → fix → repeat 반복 루프 제공.
+
+매핑 신뢰도: 중간. hoodcat qa-swarm의 다중 테스트 스위트 병렬 패턴과 ultraqa의 사이클 패턴이 동등한지 Phase 5 검증 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

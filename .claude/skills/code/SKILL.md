@@ -112,3 +112,14 @@ intent 파라미터로 관심 있는 부분만 추출할 수 있다:
 
 code 스킬은 자체 리뷰를 수행하지 않는다.
 리뷰는 Orchestrator 또는 호출자가 별도로 Task(reviewer)를 호출하여 수행한다.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:executor` 에이전트로 대체된다.
+
+호출 형태:
+- 표준 코드 변경: `Agent(subagent_type="oh-my-claudecode:executor", model="sonnet", prompt="<$ARGUMENTS와 같은 작업 지시>")`
+- 복잡 리팩토링·아키텍처 변경: `model="opus"`로 override
+- 단순 typo·1줄 수정: `model="haiku"`
+
+매핑 신뢰도: 높음. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 1·2절 참조.

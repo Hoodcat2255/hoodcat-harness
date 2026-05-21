@@ -105,3 +105,13 @@ Task(security): "배포 설정 파일을 리뷰하라. 시크릿 노출, 불필�
 
 - PASS/WARN → 완료
 - BLOCK → 수정 후 재리뷰
+
+## OMC 호환 상태: 미매핑 (Phase 2 매핑)
+
+OMC 카탈로그에 deploy 전용 워크플로·에이전트가 없다. 커스텀 hoodcat 스킬로 유지하거나 신규 OMC 스킬로 작성 필요.
+
+대안:
+- 임시: `oh-my-claudecode:executor`에 Dockerfile/CI 파일 생성 작업으로 위임
+- 장기: 신규 OMC 스킬 `deploy` 작성 (Phase 5 이후 결정)
+
+매핑 신뢰도: 낮음. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

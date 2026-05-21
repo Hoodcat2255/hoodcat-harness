@@ -125,3 +125,13 @@ Bash는 gh 명령 전용. 다른 시스템 명령 금지.
 ## REVIEW 연동
 
 의사결정 결과가 아키텍처에 영향을 주는 경우, Orchestrator가 architect 에이전트에게 리뷰를 요청한다. decide 자체는 리뷰 없이 완료된다.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:analyst`로 대체된다.
+
+호출 형태:
+- 근거 기반 의사결정: `Agent(subagent_type="oh-my-claudecode:analyst", model="opus", prompt="<$ARGUMENTS와 같은 결정 주제>")`
+- analyst는 사전 평가·trade-off 분석에 특화 (HIGH tier).
+
+매핑 신뢰도: 중간. analyst가 hoodcat decide의 비교 분석 패턴을 동등하게 제공하는지 Phase 5 검증 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

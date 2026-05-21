@@ -121,3 +121,14 @@ fetch_and_index로 인덱싱한 내용은 세션 내 FTS5 DB에 보존된다. �
 ## REVIEW 연동
 
 조사 결과가 아키텍처/기술 선택에 영향을 주는 경우, /blueprint이나 워크플로우가 architect 에이전트에게 리뷰를 요청한다. deepresearch 자체는 리뷰 없이 완료된다.
+
+## OMC 호환 호출 (Phase 2 매핑)
+
+이 스킬은 OMC 전환 시 `oh-my-claudecode:document-specialist` 또는 `oh-my-claudecode:external-context` 워크플로로 대체된다.
+
+호출 형태:
+- 단일 주제 심층 조사: `Agent(subagent_type="oh-my-claudecode:document-specialist", model="sonnet", prompt="<$ARGUMENTS와 같은 주제>")`
+- 병렬 다관점 조사: `/oh-my-claudecode:external-context` 스킬 사용
+- document-specialist는 Context Hub(chub) 사용 가능, web fallback 지원.
+
+매핑 신뢰도: 높음. Tier 1 자료 도달 강제 도메인 룰은 prompt로 전달 필요. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

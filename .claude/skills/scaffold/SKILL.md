@@ -244,3 +244,13 @@ Read로 현재 파일을 읽고, Edit으로 filters 객체에 새 항목을 추�
 - 필요 시 프로세스 단계를 추가/수정
 - `/commit`으로 커밋
 ```
+
+## OMC 호환 상태: 미매핑 (Phase 2 매핑)
+
+OMC 카탈로그에 scaffold 전용 워크플로가 없다. hoodcat-harness 고유 메타-스킬 (새 hoodcat skill/agent 파일 생성)이므로 OMC 전환 시 기능 축소 또는 별도 보존 필요.
+
+대안:
+- 임시: `oh-my-claudecode:writer` 또는 `executor`에 SKILL.md 템플릿 생성 작업으로 위임
+- 장기: hoodcat-harness 자체가 OMC로 흡수되면 본 스킬은 불필요
+
+매핑 신뢰도: 낮음. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.
