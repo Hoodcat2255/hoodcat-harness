@@ -113,58 +113,85 @@ settings.json 기준 실제 이벤트 매핑:
 - hoodcat-harness.archive.20260521 백업 생성
 - feat/agent-cleanup worktree 생성
 
-### Phase 1: 사전 정리
-- 상태: 완료 임박 (2026-05-22)
+### Phase 1: 사전 정리 — ✅ 완료 (2026-05-22)
 - 모델 다운그레이드 (navigator·reviewer → sonnet)
-- 공통 룰 정본화 (response-format / shared-context-protocol / agent-memory)
-- 8 에이전트 본문 슬림화 (cross-link 치환)
-- orchestrator.md 분할 (catalog·recipes·pushback-trigger)
-- agent-memory 디렉토리 생성
-- Small-Change Exceptions 추가
-- OMC 매핑 plan 문서 작성 (본 문서)
+- 공통 룰 정본화 (response-format / shared-context-protocol / agent-memory) — rules/ 3 파일 신규
+- 8 에이전트 본문 슬림화 (cross-link 치환) — 총 -280줄
+- orchestrator.md 분할 (catalog 45 / recipes 125 / pushback-trigger 36) — 560→371줄
+- agent-memory 디렉토리 7개 + MEMORY.md boilerplate 생성
+- examples.md 4개 추가 (coder/researcher/committer/orchestrator)
+- Small-Change Exceptions 절 추가 (.md 1줄 typo·cross-link 경로·표 1행 직접 편집 허용)
+- OMC 매핑 plan 문서 작성 (본 문서, 170줄)
+- 커밋: ae91165, 4958f57, 863d0af, b4a8bc9
 
-### Phase 2: 스킬 매핑 + 호출 호환층
-- hoodcat 스킬 12개 → OMC skill·agent 호출 매핑 구현
-- 슬래시 커맨드(/code, /test 등) 호환층 작성
-- enforce-delegation.sh가 OMC executor 위임도 정당한 서브에이전트로 인식하도록 패치
+### Phase 2: 스킬 매핑 + 호환층 — ✅ 정적 매핑 완료 (2026-05-22)
+- 12 hoodcat 스킬 SKILL.md 끝에 OMC 매핑 절 추가 (기존 본문 무변경)
+  · 매핑 가능 8개: code/test/blueprint/commit/deepresearch/decide/security-scan/qa-swarm (호출 형태·신뢰도 명시)
+  · 미매핑·커스텀 유지 3개: deploy/scaffold/sync-docs
+  · 이중 매핑 1개: team-review (→ /ultrareview 또는 /oh-my-claudecode:team)
+- 슬래시 커맨드 호환층 작성·enforce-delegation 패치는 Phase 5 운영 검증 후 적용
+- 커밋: 69370db
 
-### Phase 3: 에이전트 프롬프트 OMC 카탈로그 호환 변환
-- 8 에이전트 .md에서 hoodcat 고유 Skill 카탈로그 참조를 OMC agent 호출 표기로 변경
-- Recipes의 Skill·Task 표기를 Agent(subagent_type="oh-my-claudecode:...") 형태로 변환
+### Phase 3: 에이전트 프롬프트 OMC 카탈로그 호환 변환 — ✅ 정적 매핑 완료 (2026-05-22)
+- `orchestrator/catalog.md`에 OMC 호환 매핑 표 추가 (Skill 12개·Agent 8개 1:1)
+- `orchestrator/recipes.md`에 OMC 호환 패턴 예시 추가 (Feature/Bug Fix/Hotfix/병렬)
+- 8 에이전트 .md 본문 자체의 Skill 카탈로그 표기는 Phase 5 운영 검증 후 swap (점진 전환)
+- 커밋: fa4d9c2
 
-### Phase 4: 훅 마이그레이션
-- shared-context-*.sh → OMC notepad/shared-memory 이전
-- notify-telegram.sh → telegram plugin으로 이전
-- task-quality-gate.sh → verifier 호출로 대체
-- 테스트용 훅(test-notify-telegram.sh, test-shared-context.sh) 제거
+### Phase 4: 훅 마이그레이션 — ✅ 정적 매핑 완료 (2026-05-22)
+- 운영 훅 10개 헤더에 OMC 호환 매핑 주석 블록 추가 (기존 코드 무변경, bash -n 통과)
+- `.claude/settings-omc.json.example` 신규 (매핑 가능 7개 훅 제거안 + 검증 항목 명시)
+- 실제 settings.json swap은 Phase 5 운영 검증 통과 후 사용자 결정
+- 테스트용 훅(test-notify-telegram.sh, test-shared-context.sh) 제거는 swap 시 동시 진행
+- 커밋: c34dc57
 
-### Phase 5: 검증·전환 완료
-- 통합 테스트 (각 워크플로 실제 호출)
-- TODO.md 정리
-- 프로젝트 로컬 rules/ 중 글로벌 중복 항목 제거
-- archive 제거 (전환 안정화 후)
+### Phase 5: 정적 검증·전환 준비 완료 — ✅ 완료 (2026-05-22)
+
+**정적 검증 결과 (V1~V6 all PASS)**:
+- V1 yaml frontmatter parse: 20/20 PASS (전체 .md)
+- V2 cross-link 실재 (touched 파일 한정): PASS, FAIL 0
+- V3 8 에이전트 필수 키(name/description/tools/model): 8/8 PASS
+- V4 12 스킬 frontmatter: 12/12 PASS
+- V5 settings-omc.json.example: JSON valid
+- V6 10 운영 훅: OMC 매핑 주석 10/10 + bash -n 10/10 PASS
+
+**남은 운영 검증 (Phase 5+ — settings.json swap 결정 전 필수)**:
+8절 참조.
 
 ---
 
-## 8. 미해결 이슈 및 검증 항목
+## 8. 미해결 이슈 및 운영 검증 항목 (Phase 5+)
 
-- enforce-delegation.sh의 3-신호 OR 판별이 OMC executor를 정당한 서브에이전트로 인식하는지 회귀 테스트 필요. OMC executor의 .agent_transcript_path·.agent_id·.agent_type 신호 값 확인 필요.
-- OMC executor의 model override가 hoodcat coder의 광범위 Bash 권한(npm·pytest·cargo·go·make·docker·pip audit·govulncheck·gh)을 그대로 지원하는지 검증 필요.
-- OMC ultraqa vs hoodcat qa-swarm 기능 동등성 검증 필요. 특히 병렬 에이전트 스폰 방식과 결과 통합 메커니즘.
-- context-mode MCP가 OMC 환경에서 동작하는지 확인 필요. coder·researcher 에이전트가 mcpServers: [context-mode]를 선언하고 있음.
-- OMC notepad/shared-memory의 TTL·gc 정책이 hoodcat shared-context-config.json(TTL, 최대 항목 수 설정)과 호환되는지 검토 필요.
-- OMC team 워크플로에서 TeammateIdle 이벤트 처리 메커니즘 확인. teammate-idle-check.sh 대체 가능 여부.
-- shared-context-collect.sh의 flock 기반 동시 안전 쓰기가 OMC shared_memory_write로 동등하게 보장되는지 확인 필요.
+본 정리에서 정적 매핑은 완료. settings.json 실제 swap 전에 다음 항목을 운영 검증해야 한다.
+
+| # | 검증 항목 | 영향 | 신뢰도 |
+|---|----------|------|--------|
+| 1 | enforce-delegation.sh의 3-신호 OR 판별이 OMC executor 서브에이전트를 정당하게 인식하는지 (.agent_transcript_path / .transcript_path /subagents/ / .agent_id+.agent_type) | 위임 강제 차단 오류 가능성 | 미검증 |
+| 2 | OMC executor의 광범위 Bash 권한 (npm·pytest·cargo·go·make·docker·pip audit·govulncheck·gh) 지원 여부 | coder 스킬 호환성 | 미검증 |
+| 3 | OMC ultraqa vs hoodcat qa-swarm 기능 동등성 (병렬 에이전트 스폰 + 결과 통합) | qa-swarm 대체 가능 여부 | 미검증 |
+| 4 | context-mode MCP가 OMC 환경에서 동작하는지 (coder·researcher가 mcpServers 선언) | 대용량 출력 처리 호환성 | 미검증 |
+| 5 | OMC notepad/shared-memory TTL·gc 정책이 shared-context-config.json과 호환되는지 | shared-context 4개 훅 swap 가능 여부 | 미검증 |
+| 6 | OMC team 워크플로의 TeammateIdle 이벤트 내장 처리 | teammate-idle-check 대체 가능 여부 | 미검증 |
+| 7 | shared-context-collect.sh의 flock 기반 동시 안전 쓰기 ↔ shared_memory_write 동등성 | 동시성 안전성 | 미검증 |
+| 8 | 글로벌 ~/.claude/settings.json의 telegram plugin이 SubagentStop을 실제 받는지 알림 도달 테스트 | notify-telegram swap 가능 여부 | 미검증 |
+| 9 | verifier 명시 호출 → task-quality-gate 자동 트리거 없이 동등한 검증 강도 유지되는지 운영 관찰 | task-quality-gate swap 영향도 | 미검증 |
+| 10 | OMC analyst가 hoodcat decide의 비교 분석 패턴(trade-off 표·자료 등급)을 동등하게 제공하는지 | decide → analyst 신뢰도 | 미검증 |
+
+각 항목은 운영 환경에서 1회 이상 실증 테스트 통과 후 매핑 신뢰도를 "검증됨"으로 갱신한다.
 
 ---
 
 ## 9. 자신감 라벨 및 다음 단계
 
-본 매핑은 추정. 실제 진행 전 다음 검증 필요:
+본 정리 Phase 1~5의 **정적 매핑**은 직접 확인된 hoodcat 파일·OMC 카탈로그 기반. 자신감: **확실** (Tier 1, 직접 확인).
+**운영 동작 검증**은 8절 10개 항목 모두 **미검증** 상태이므로, 매핑 plan 전체로서의 자신감은 **추정** (운영 검증 필요).
 
-- (Tier 1) OMC 에이전트 정의 파일·SKILL.md 원문 직접 확인 (omc-reference 스킬 또는 글로벌 ~/.claude/ 경로)
-- (Tier 1) hoodcat 각 스킬·훅 source와 OMC 대응 도구 직접 비교
-- 매핑 신뢰도 "낮음"인 항목(deploy, scaffold, sync-docs)은 호환층 작성 또는 커스텀 유지 결정 필요
-- enforce-delegation.sh OMC 호환 회귀 테스트를 Phase 2 착수 전 선행 실행 권장
+**즉시 가능한 다음 단계**:
+- (a) worktree `feat/agent-cleanup` 검토 후 main에 머지
+- (b) 운영 검증 1번 (enforce-delegation 회귀)을 먼저 실행 — 가장 영향도 큰 항목
+- (c) 운영 검증 통과 시 settings.json을 `settings-omc.json.example` 기반으로 swap
+- (d) hoodcat 스킬·에이전트 .md를 OMC 호출로 점진 교체
 
-다음 단계: 본 문서 검토 후 Phase 2 착수 여부 결정.
+**미매핑 항목 결정 필요**:
+- `deploy` / `scaffold` / `sync-docs`: 커스텀 유지 vs 신규 OMC 스킬 작성 vs 폐기 — 사용자 결정 필요
+- 프로젝트 로컬 rules/ (source-hierarchy / epistemic-honesty / antipatterns-*) 와 글로벌 ~/.claude/rules/ 중복: 동기화 후 로컬 제거 가능 여부 결정 필요
