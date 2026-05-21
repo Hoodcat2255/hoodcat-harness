@@ -123,3 +123,73 @@ Basic:    code(harness file change) → sync-docs → commit
 Scaffold: scaffold(new skill/agent) → sync-docs → commit
 Check:    sync-docs(--check-only) → [code(fix docs)] → commit
 ```
+
+## OMC 호환 패턴 예시 (Phase 3)
+
+기존 레시피의 OMC 카탈로그 호환 표기. hoodcat의 `Skill(...)` / `Task(...)` 호출이 OMC에서 어떻게 표현되는지 보여준다.
+
+### Feature Implementation (OMC 호환)
+
+기존 (hoodcat):
+```
+[Task(navigator) ‖ deepresearch] → [blueprint] → code → test → Task(reviewer) → commit
+```
+
+OMC 호환:
+```
+[Agent(explore, sonnet) ‖ Agent(document-specialist, sonnet)] →
+[Agent(planner, opus)] →
+Agent(executor, sonnet) →
+Agent(test-engineer, sonnet) →
+Agent(code-reviewer, opus) →
+Agent(git-master, sonnet)
+```
+
+### Bug Fix (OMC 호환)
+
+기존 (hoodcat):
+```
+Task(navigator) → code(diagnose+patch) → test(regression) → Task(reviewer) → commit
+```
+
+OMC 호환:
+```
+Agent(explore, sonnet) →
+Agent(debugger, sonnet)  ← 진단 분리
+Agent(executor, sonnet)  ← 패치
+Agent(test-engineer, sonnet, prompt="regression tests for changed files") →
+Agent(code-reviewer, opus) →
+Agent(git-master, sonnet)
+```
+
+### Hotfix (OMC 호환)
+
+기존 (hoodcat):
+```
+Task(security, severity) → code(minimal patch) → [Task(reviewer) ‖ Task(security)] → test(regression) → security-scan → commit
+```
+
+OMC 호환:
+```
+Agent(security-reviewer, opus, prompt="severity assessment") →
+Agent(executor, sonnet, prompt="minimal patch") →
+[Agent(code-reviewer, opus) ‖ Agent(security-reviewer, opus)] →
+Agent(test-engineer, sonnet, prompt="regression") →
+Agent(security-reviewer-low, haiku, prompt="dependency audit") →
+Agent(git-master, sonnet)
+```
+
+### 병렬 패턴 (OMC 호환)
+
+기존 (hoodcat) TeamCreate / TaskCreate 방식 대신, OMC에서는 동일 응답 안에서 여러 `Agent(...)` 호출을 동시에 발사하면 자동 병렬 실행된다 (ULW 패턴 — `/oh-my-claudecode:ultrawork`).
+
+```
+# 같은 메시지에서 동시 호출 → 병렬 실행
+[Agent(code-reviewer, opus)]
+[Agent(security-reviewer, opus)]
+[Agent(architect, opus)]
+```
+
+대규모 워크플로는 `/oh-my-claudecode:team` (N 에이전트 협업) 또는 `/oh-my-claudecode:ultrawork` (병렬 N개 작업) 사용.
+
+세부 사항은 `docs/migration-omc-mapping-20260522.md` 2·7절 참조.
