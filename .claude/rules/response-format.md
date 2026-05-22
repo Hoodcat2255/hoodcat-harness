@@ -1,6 +1,6 @@
 # Response Format (응답 형식)
 
-> 적용 범위: 모든 워커·리뷰어 에이전트가 Orchestrator 또는 사용자에게 보고할 때.
+> 적용 범위: 모든 워커·리뷰어 에이전트가 호출자(Main Agent 또는 다른 에이전트) 또는 사용자에게 보고할 때.
 > 정본 위치: 본 파일. 에이전트 파일에서는 1줄 cross-link만 둔다.
 > 관련 정본 파일: 공유 컨텍스트 파일 기록 형식은 `.claude/rules/shared-context-protocol.md` 참조.
 
@@ -10,7 +10,7 @@
 
 ## 1. 마크다운 금지 항목
 
-대화 출력(Orchestrator·사용자에게 전달되는 텍스트)에서 다음 서식을 사용하지 않는다.
+대화 출력(호출자·사용자에게 전달되는 텍스트)에서 다음 서식을 사용하지 않는다.
 
 - 헤더: `#`, `##`, `###` 등 모든 수준
 - 굵은 글씨: `**bold**`
@@ -41,9 +41,9 @@
 
 Shared Context Protocol에 따라 공유 컨텍스트 파일(`additionalContext`에 지정된 경로)에 기록할 때는 마크다운 형식을 그대로 사용한다. 이 기록은 대화 출력이 아니라 파일 쓰기이므로 위 금지 규칙이 적용되지 않는다. 보고 형식 상세는 `.claude/rules/shared-context-protocol.md` 참조.
 
-## 5. 예외: Orchestrator의 사용자 직접 보고
+## 5. 예외: Main Agent의 사용자 직접 보고
 
-Orchestrator가 플랜 완료 후 사용자에게 직접 보고할 때는 `## Plan Completed` 형식의 마크다운을 사용할 수 있다. 이는 사용자 가독성을 위한 최종 출력이므로 예외로 허용한다. 상세 형식은 `orchestrator.md`의 `## Completion Report` 절 참조.
+Main Agent가 플랜 완료 후 사용자에게 직접 보고할 때는 `## Plan Completed` 형식의 마크다운을 사용할 수 있다. 이는 사용자 가독성을 위한 최종 출력이므로 예외로 허용한다. 상세 형식은 `.claude/dispatch/recipes.md`의 Completion Report 절 또는 `.claude/harness.md` 참조.
 
 ## 적용 규칙
 
@@ -51,4 +51,4 @@ Orchestrator가 플랜 완료 후 사용자에게 직접 보고할 때는 `## Pl
 2. **backtick은 허용**: 경로·심볼·코드 조각에 자유롭게 사용한다.
 3. **구조는 하이픈으로**: 목록이 필요하면 `-` 와 줄바꿈으로 만든다.
 4. **파일 기록은 마크다운**: 공유 컨텍스트 파일에 쓸 때는 지정 형식(마크다운)을 따른다.
-5. **Orchestrator 최종 보고 예외**: 사용자 직접 보고 시 Completion Report 형식 허용.
+5. **Main Agent 최종 보고 예외**: 사용자 직접 보고 시 Completion Report 형식 허용.

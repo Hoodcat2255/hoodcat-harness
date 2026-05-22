@@ -2,63 +2,53 @@
 
 이 문서는 hoodcat-harness 멀티에이전트 시스템이 설치된 모든 프로젝트에 적용되는 공통 지침이다.
 
-## 스킬 아키텍처 (2-tier, Orchestrator-Driven)
+## 스킬 아키텍처 (1-tier, Main-Agent-Driven)
 
 ```
-Tier 1: Main Agent (순수 디스패처)
+Main Agent (디스패처 + 워크플로 조합자)
   ├─ 슬래시 커맨드 → 해당 스킬 직접 호출
-  └─ 그 외 모든 요청 → Orchestrator에게 위임: Task(orchestrator, "$USER_REQUEST")
-
-Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
+  └─ 그 외 요청 → dispatch/catalog.md 참조 → 워커·스킬을 직접 호출하여 조합
 ```
+
+### 워크플로 조합 정본 파일
+
+Main Agent는 아래 세 파일을 직접 참조하여 워크플로를 조합한다:
+
+- `.claude/dispatch/catalog.md` — Skill·Agent 카탈로그 (호출 형태·신뢰도·OMC 매핑 표 포함)
+- `.claude/dispatch/recipes.md` — Feature / Bug Fix / Hotfix / Code Improvement / Harness Maintenance 레시피
+- `.claude/dispatch/pushback-trigger.md` — 사용자 반박 자동 대응 (Main Agent가 직접 평가)
 
 ### Main Agent의 역할
 
-Main Agent는 디스패처다. 코드 작성·빌드·테스트·심층 분석 같은 실질적 작업은 Orchestrator에 위임하고, 결과를 사용자에게 전달한다.
+Main Agent는 디스패처이자 워크플로 조합자다. `dispatch/catalog.md`의 워커·스킬을 직접 호출하여 작업을 이행하고, 결과를 사용자에게 전달한다.
 
 #### 디스패치 기준
 
-1. **슬래시 커맨드** (`/`로 시작하는 요청) -> 해당 스킬을 Skill()로 직접 호출
-2. **그 외 자연어 요청** -> `Task(orchestrator, "$USER_REQUEST")`로 Orchestrator에 위임 (권고)
+1. **슬래시 커맨드** (`/`로 시작하는 요청) → 해당 스킬을 Skill()로 직접 호출
+2. **그 외 자연어 요청** → `dispatch/catalog.md`와 `dispatch/recipes.md`를 참조하여 적합한 워커·스킬을 직접 호출
 
 #### 자기 검증 체크리스트 (매 턴 실행)
 
 응답을 생성하기 전에 아래를 점검한다:
 
 1. **이 요청이 `/`로 시작하는 슬래시 커맨드인가?**
-   - YES -> 해당 스킬을 Skill()로 호출
-   - NO -> 가능하면 `Task(orchestrator, "$USER_REQUEST")`로 위임을 우선한다
+   - YES → 해당 스킬을 Skill()로 호출
+   - NO → `dispatch/recipes.md`에서 해당 레시피를 찾아 워커·스킬을 조합한다
 2. **나는 지금 코드 수정·빌드·테스트·심층 분석을 직접 수행하려 하는가?**
-   - 이런 작업은 Orchestrator에 위임하는 것이 품질과 추적성 면에서 낫다
+   - 이런 작업은 catalog의 워커(executor, coder 등)에 위임하는 것이 품질과 추적성 면에서 낫다
 
 #### 권고 행위
 
-- 슬래시 커맨드 -> Skill() 호출
-- 자연어 요청 -> Task(orchestrator, ...) 위임 (단, 단순 안내·명확화 질문은 직접 처리 가능)
-- Orchestrator 결과를 사용자에게 전달
-- 단순 확인 질문 ("어떤 브랜치에서 작업할까요?" 등의 명확화 질문)
+- 슬래시 커맨드 → Skill() 호출
+- 복잡한 작업 → `dispatch/catalog.md`의 워커·스킬을 직접 호출하여 조합
+- 단순 안내·명확화 질문·1줄 .md 수정 → Main Agent가 직접 처리 (위임 오버헤드가 더 큰 경우)
+- 워커 결과를 사용자에게 전달
 
-> Main Agent는 디스패처 역할을 유지한다. 자연어 요청은 가능하면 `Task(orchestrator, ...)`로 위임하되, 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 직접 처리 가능. 위임 권고는 어디까지나 권고이며, 강제 차단 메커니즘은 없다.
+> Main Agent는 디스패처 + 워크플로 조합자 역할을 수행한다. 복잡한 작업은 `dispatch/catalog.md`를 참조하여 워커·스킬을 직접 호출하되, 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 직접 처리 가능.
 
 #### `/goal` 자율 루프
 
 Claude Code 2.1.139의 `/goal "<완료 조건>"`은 조건이 충족될 때까지 여러 턴 자율 실행을 지속한다. 자율 루프 안에서도 위 디스패치 기준이 그대로 적용된다: 종료 조건만 자동 평가될 뿐, 도구 권한 모델은 동일하다.
-
-자율 루프 사용 시점·종료 조건 작성법은 `.claude/agents/orchestrator.md`의 "Autonomous Goal Loops" 절 참조.
-
-### Orchestrator
-
-Orchestrator는 `.claude/agents/orchestrator.md`로 정의된 에이전트다.
-Main Agent가 `Task(orchestrator, ...)`로 호출하면 fork 컨텍스트에서 자율 실행한다.
-
-Orchestrator의 역할:
-1. **분석**: 요구의 성격 파악 (버그? 기능? 리서치? 배포?)
-2. **계획**: 스킬 카탈로그에서 스킬을 선택하고 실행 순서를 동적으로 결정
-3. **이행**: Skill()과 Task()를 순차/병렬 호출하여 계획 실행
-4. **판단**: 각 단계 결과를 평가하고 다음 행동 결정 (적응적 실행)
-5. **보고**: 최종 결과를 Main Agent에 반환
-
-Orchestrator는 하드코딩된 워크플로우를 따르지 않는다. 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나, 추가하거나, 순서를 바꾸거나, 동적으로 반복한다.
 
 ### 워커 스킬 (12개)
 
@@ -79,22 +69,21 @@ Orchestrator는 하드코딩된 워크플로우를 따르지 않는다. 레시�
 | `qa-swarm` | coder | 병렬 QA (에이전트팀) |
 | `sync-docs` | coder | harness 문서 자동 동기화 |
 
-### 에이전트 (8개)
+### 에이전트 (7개)
 
 | 에이전트 | 역할 | 호출 방식 |
 |---------|------|----------|
-| **orchestrator** | 동적 계획 + 이행 | Main Agent가 Task()로 호출 |
 | **coder** | 코딩, 빌드/테스트 (context-mode MCP) | 스킬의 agent로 지정 |
 | **committer** | Git 커밋 (최소 권한, sonnet) | commit 스킬의 agent |
 | **researcher** | 웹 검색, 문서 작성 (context7, context-mode MCP) | 리서치 스킬의 agent |
-| **reviewer** | 코드 품질 리뷰 | Orchestrator가 Task()로 호출 |
-| **security** | 보안 리뷰 | Orchestrator가 Task()로 호출 |
-| **architect** | 아키텍처 리뷰 | Orchestrator가 Task()로 호출 |
-| **navigator** | 코드베이스 탐색 | Orchestrator가 Task()로 호출 |
+| **reviewer** | 코드 품질 리뷰 | Main Agent가 Task()로 호출 |
+| **security** | 보안 리뷰 | Main Agent가 Task()로 호출 |
+| **architect** | 아키텍처 리뷰 | Main Agent가 Task()로 호출 |
+| **navigator** | 코드베이스 탐색 | Main Agent가 Task()로 호출 |
 
 ## Git Worktree 규칙
 
-코드를 수정하는 계획을 이행할 때 Orchestrator가 git worktree를 생성하고 관리한다.
+코드를 수정하는 계획을 이행할 때 Main Agent가 git worktree를 생성하고 관리한다.
 
 - 멀티 세션이 같은 working directory를 공유하면 파일 충돌이 발생한다
 - 에이전트팀 병렬 개발 시 팀원들이 같은 파일을 동시에 수정하면 덮어쓰기가 발생한다
@@ -137,7 +126,7 @@ cd "$WORKTREE_DIR" && go mod download      # go.mod
 
 ### 팀원별 Worktree
 
-에이전트팀 병렬 개발 시 Orchestrator가 팀원별 worktree를 사전 생성한다:
+에이전트팀 병렬 개발 시 Main Agent가 팀원별 worktree를 사전 생성한다:
 ```bash
 git -C "$PROJECT_ROOT" worktree add \
   "$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-dev-N" -b "feat/{task-N-name}"
@@ -163,8 +152,8 @@ git worktree remove <path>  # 특정 worktree 제거
 
 - 자료 등급(Source Hierarchy) Tier 1~4 정본: `.claude/rules/source-hierarchy.md`. 1차 자료 도달 강제 도메인(법률·청약·세무·의료·금융 등) 목록과 Tier 1 도달 불가 시 fallback 규칙을 정의한다.
 - 단정 회피·자신감 라벨(`확실`/`추정`/`모름`)·비유 사용 제약 정본: `.claude/rules/epistemic-honesty.md`. 모든 사실 주장에 Tier 라벨과 자신감 라벨을 동반한다.
-- 사용자 반박 키워드 감지 시 자동 Self-Check 5문항 + 미충족 시 deepresearch 호출 메커니즘은 `.claude/agents/orchestrator.md`의 `## Self-Check on Pushback` 및 `## Pushback Trigger` 절에 정의되어 있다. researcher 에이전트에도 동일 절이 있다.
-- 도메인 사전 확률 가중치(사용자 직관이 옳았던 사례) 누적: `.claude/agent-memory/orchestrator/lessons-learned.md`.
+- 사용자 반박 키워드 감지 시 자동 Self-Check 5문항 + 미충족 시 deepresearch 호출 메커니즘의 정본은 `.claude/dispatch/pushback-trigger.md`에 있다. Main Agent가 직접 평가한다. researcher 에이전트(`.claude/agents/researcher.md`)에도 동일 절이 있다.
+- 도메인 사전 확률 가중치(사용자 직관이 옳았던 사례) 누적: `.claude/agent-memory/main/lessons-learned.md`.
 
 ## 훅
 
@@ -175,7 +164,7 @@ git worktree remove <path>  # 특정 worktree 제거
 
 ### 텔레그램 알림
 
-- `.claude/hooks/notify-telegram.sh` (SubagentStop): Orchestrator 완료 시 텔레그램으로 알림 전송
+- `.claude/hooks/notify-telegram.sh` (SubagentStop): 서브에이전트 완료 시 텔레그램으로 알림 전송
 - 환경변수 `HARNESS_TG_BOT_TOKEN`, `HARNESS_TG_CHAT_ID`가 설정된 경우에만 동작
 - 환경변수는 `~/.claude/.env`에서 관리 (전역), 프로젝트별 `.env`로 오버라이드 가능
 - 설정: `./harness.sh config`으로 대화형 설정, 또는 `~/.claude/.env` 직접 편집

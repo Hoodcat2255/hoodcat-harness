@@ -25,6 +25,15 @@ claude-dashboard 실데이터 분석 결과 오케스트레이터가 스킬/에�
 - [x] Phase 4: 10 운영 훅에 OMC 매핑 주석 + settings-omc.json.example 작성
 - [x] Phase 5: 정적 검증 (V1~V6) 모두 통과
 
+### Phase X (보너스): Orchestrator 에이전트 자체 제거 — ✅ 완료 (2026-05-22)
+- `.claude/agents/orchestrator.md` 및 `examples.md` 삭제
+- `.claude/agents/orchestrator/{catalog,recipes,pushback-trigger}.md` → `.claude/dispatch/{catalog,recipes,pushback-trigger}.md` 이전
+- Main Agent가 디스패처 + 워크플로 조합 + Pushback Trigger 평가 역할 모두 수행 (1-tier 구조)
+- 7 에이전트 .md / 12 SKILL.md의 orchestrator 참조 정리
+- harness.md / CLAUDE.md 아키텍처 절 갱신
+- OMC 매핑 plan + prompt-flow 문서 갱신
+- 옵션 X 폐지 효과: 메타 워커 fork 오버헤드 제거, OMC 구조와 완전 정합
+
 ## Phase 5+ 운영 검증 항목 (settings.json 실제 swap 전 필수)
 
 - [ ] OMC executor의 광범위 Bash 권한(npm/pytest/cargo/go/make/docker/pip audit/govulncheck/gh) 지원 검증 (최우선)
@@ -49,3 +58,4 @@ claude-dashboard 실데이터 분석 결과 오케스트레이터가 스킬/에�
 - [ ] hoodcat-harness.archive.20260521 제거
 - [ ] 본 TODO.md 정리 (완료 항목 archive 또는 삭제)
 - [ ] 매핑 plan 문서를 changelog로 분리
+- [ ] (운영) `.claude/agent-memory/orchestrator/` 디렉토리를 `.claude/agent-memory/main/`로 rename (.gitignore이라 git 영향 없음, 실 운영 환경에서만 처리)

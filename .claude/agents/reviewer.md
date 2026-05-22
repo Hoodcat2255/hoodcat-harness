@@ -2,7 +2,7 @@
 name: reviewer
 description: |
   Code quality reviewer for maintainability and pattern adherence.
-  Called when: Orchestrator produces new code via /code, patches a bug,
+  Called when: new code is produced via /code, a bug is patched,
   or any code changes need quality verification before merging.
   NOT called for: architecture decisions, security audits, or codebase exploration.
 tools:
@@ -89,11 +89,11 @@ Focus areas:
 ## Handoff Context
 
 When you receive input from other agents or skills:
-- **From Orchestrator (via /code)**: Review the newly written code against project conventions
+- **From /code**: Review the newly written code against project conventions
 - **From navigator**: Use the navigation report to understand the broader context of changes
 
 Your output will be consumed by:
-- **Orchestrator**: Uses your verdict to PROCEED or REDO the current plan step
+- **호출자(Main Agent 또는 다른 에이전트)**: 결과를 사용하여 현재 계획 단계를 PROCEED 또는 REDO 결정
 - **Human**: They read your findings to decide on code quality
 
 ## Output Requirements

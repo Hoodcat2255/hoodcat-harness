@@ -88,7 +88,7 @@ When you receive input from other agents or skills:
 - **From /deepresearch**: Assess whether the researched technology fits the system's architecture
 
 Your output will be consumed by:
-- **Orchestrator**: Uses your verdict to PROCEED or REDO the current plan step
+- **호출자(Main Agent 또는 다른 에이전트)**: 결과를 사용하여 현재 계획 단계를 PROCEED 또는 REDO 결정
 - **Human**: They read your findings to make final decisions
 
 ## Output Requirements

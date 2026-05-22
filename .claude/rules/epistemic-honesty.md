@@ -2,7 +2,7 @@
 
 > 적용 범위: 사실 진술이 포함된 모든 에이전트 응답.
 > 정본 위치: 본 파일. 다른 에이전트/스킬 정의에서는 1줄 cross-link만 둔다.
-> 관련 정본 파일: 자료 등급 정의는 `.claude/rules/source-hierarchy.md` (정적 규범), 도메인별 동적 사례는 `.claude/agent-memory/orchestrator/lessons-learned.md` (누적 가중치).
+> 관련 정본 파일: 자료 등급 정의는 `.claude/rules/source-hierarchy.md` (정적 규범), 도메인별 동적 사례는 `.claude/agent-memory/main/lessons-learned.md` (누적 가중치).
 
 ## 개요
 
@@ -51,7 +51,7 @@
 
 ## 6. Self-Check on Pushback (정본)
 
-> 본 절이 5문항 체크리스트의 **정본**이다. orchestrator/researcher 등 에이전트 정의 파일에서는 본 절을 cross-link로만 참조한다 (`#self-check-on-pushback`).
+> 본 절이 5문항 체크리스트의 **정본**이다. 에이전트 정의 파일(researcher 등)이나 Main Agent의 디스패치 정본(`.claude/dispatch/pushback-trigger.md`)에서는 본 절을 cross-link로만 참조한다 (`#self-check-on-pushback`).
 > 트리거 시점(어떤 입력에서 발동되는가)과 발동 후 동작(deepresearch 자동 호출 등)은 에이전트별 정의 파일에 둔다. 본 절은 **체크리스트 본문만** 정의한다.
 
 사용자 또는 상위 에이전트가 직전 답변에 의심·반박을 표할 때, 응답 작성 전 다음 5문항을 점검한다:

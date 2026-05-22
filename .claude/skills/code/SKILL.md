@@ -3,7 +3,7 @@ name: code
 description: |
   Writes, modifies, diagnoses, and patches code following project conventions.
   Handles implementation, bug fixing, refactoring, and lint/format.
-  Called by Orchestrator for all code change tasks, or directly by users.
+  Used for all code change tasks (directly or via skill invocation).
   Triggers on: "코드 작성", "코드 수정", "code", or any direct request
   to write or modify code without a broader workflow.
 argument-hint: "<작업 지시: 구현 스펙, 버그 설명, 리팩토링 요청 등>"
@@ -111,7 +111,7 @@ intent 파라미터로 관심 있는 부분만 추출할 수 있다:
 ## REVIEW 연동
 
 code 스킬은 자체 리뷰를 수행하지 않는다.
-리뷰는 Orchestrator 또는 호출자가 별도로 Task(reviewer)를 호출하여 수행한다.
+리뷰는 호출자(Main Agent 또는 다른 에이전트)가 별도로 Task(reviewer)를 호출하여 수행한다.
 
 ## OMC 호환 호출 (Phase 2 매핑)
 

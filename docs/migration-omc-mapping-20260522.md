@@ -8,7 +8,7 @@
 
 ## 개요
 
-hoodcat-harness는 Claude Code 위에 얹은 커스텀 2-tier 멀티에이전트 시스템이다. Main Agent(순수 디스패처) → Orchestrator → 워커 스킬·에이전트로 이어지는 구조로, 공유 컨텍스트·에이전트 메모리·텔레그램 알림을 직접 구현해왔다 (위임 강제 시스템은 옵션 A로 2026-05-22 폐지됨).
+hoodcat-harness는 Claude Code 위에 얹은 커스텀 멀티에이전트 시스템이다. Main Agent(디스패처 + 워크플로 조합) → 워커 스킬·에이전트로 이어지는 1-tier 구조로, 공유 컨텍스트·에이전트 메모리·텔레그램 알림을 직접 구현해왔다 (위임 강제 시스템은 옵션 A로 2026-05-22 폐지됨. Orchestrator 에이전트 자체는 옵션 X로 2026-05-22 제거됨).
 
 oh-my-claudecode(OMC)는 Claude Code 공식 플러그인 기반의 멀티에이전트 오케스트레이션 레이어로, executor·planner·architect 등 표준 에이전트 카탈로그와 notepad·shared-memory·trace 등 내장 MCP 도구를 제공한다. 전환의 핵심 가치는 hoodcat 고유 인프라 유지 비용을 낮추고, OMC가 제공하는 표준 워크플로(autopilot·ultrawork·ralph·team 등)와 지속적 업데이트를 활용하는 것이다.
 
@@ -18,7 +18,7 @@ oh-my-claudecode(OMC)는 Claude Code 공식 플러그인 기반의 멀티에이�
 
 | hoodcat-harness 에이전트 | OMC 대응 | 매핑 신뢰도 | 비고 |
 |---|---|---|---|
-| orchestrator | planner + 메인 디스패치 | 중간 | OMC는 Claude main agent가 디스패처 역할을 직접 수행. orchestrator의 동적 계획·레시피 조합은 planner로. 위임 강제는 폐지(옵션 A)되어 글로벌 권고만 남음. |
+| ~~orchestrator~~ | *(제거됨, 옵션 X 2026-05-22)* | — | Main Agent가 디스패처 + 워크플로 조합 역할을 직접 수행 (1-tier). catalog/recipes/pushback-trigger는 `.claude/dispatch/`로 이전. |
 | coder | executor (model=opus override 가능) | 높음 | OMC executor가 동일 역할(코드 작성·수정·빌드·테스트·패치). context-mode MCP 의존성 별도 검토 필요. |
 | researcher | document-specialist + scientist | 중간 | deepresearch→document-specialist, blueprint/decide의 웹 조사→scientist, Context7 MCP 활용 방식 차이 확인 필요. |
 | committer | git-master | 높음 | OMC commit protocol(HEREDOC 커밋, pre-commit 훅 처리) 활용. 거의 1:1 매핑. |
@@ -58,7 +58,7 @@ settings.json 기준 실제 이벤트 매핑:
 | shared-context-inject.sh | SubagentStart | OMC shared-memory / notepad | mcp__plugin_oh-my-claudecode_t__shared_memory_read + notepad_read로 대체 가능. additionalContext 주입 방식은 OMC SubagentStart 훅으로 유지 가능. |
 | subagent-monitor.sh | SubagentStop | OMC trace_summary / trace_timeline | trace_summary·trace_timeline MCP 도구로 대체 가능. 로깅 상세도 비교 필요. |
 | shared-context-collect.sh | SubagentStop | OMC shared-memory / notepad | shared_memory_write·notepad_write_working으로 대체 가능. flock 기반 동시성 처리 OMC 내부 메커니즘 확인 필요. |
-| notify-telegram.sh | SubagentStop | telegram plugin | 글로벌 telegram plugin(mcp__plugin_telegram_telegram__reply)으로 전환. 현재 orchestrator 공유 컨텍스트 파싱 로직은 별도 정리 필요. |
+| notify-telegram.sh | SubagentStop | telegram plugin | 글로벌 telegram plugin(mcp__plugin_telegram_telegram__reply)으로 전환. 기존 공유 컨텍스트 파싱 로직은 별도 정리 필요. |
 | shared-context-finalize.sh | SessionEnd | OMC state_write / notepad | state_write·notepad_write_manual로 세션 종료 메트릭 기록 가능. |
 | shared-context-cleanup.sh | SessionStart | OMC state_clear / shared_memory_cleanup | state_clear·shared_memory_cleanup으로 TTL 만료 세션 정리 대체 가능. |
 | task-quality-gate.sh | TaskCompleted | verifier 에이전트 | OMC verifier가 빌드/테스트 자동 검증 동등 기능 제공. TaskCompleted 훅으로 verifier 호출 구조 유지 또는 OMC ultraqa로 통합 가능. |
@@ -133,8 +133,8 @@ settings.json 기준 실제 이벤트 매핑:
 - 커밋: 69370db
 
 ### Phase 3: 에이전트 프롬프트 OMC 카탈로그 호환 변환 — ✅ 정적 매핑 완료 (2026-05-22)
-- `orchestrator/catalog.md`에 OMC 호환 매핑 표 추가 (Skill 12개·Agent 8개 1:1)
-- `orchestrator/recipes.md`에 OMC 호환 패턴 예시 추가 (Feature/Bug Fix/Hotfix/병렬)
+- `orchestrator/catalog.md`(당시)에 OMC 호환 매핑 표 추가 (Skill 12개·Agent 8개 1:1) → 이후 옵션 X로 `.claude/dispatch/catalog.md`로 이전
+- `orchestrator/recipes.md`(당시)에 OMC 호환 패턴 예시 추가 (Feature/Bug Fix/Hotfix/병렬) → `.claude/dispatch/recipes.md`로 이전
 - 8 에이전트 .md 본문 자체의 Skill 카탈로그 표기는 Phase 5 운영 검증 후 swap (점진 전환)
 - 커밋: fa4d9c2
 
@@ -144,6 +144,15 @@ settings.json 기준 실제 이벤트 매핑:
 - 실제 settings.json swap은 Phase 5 운영 검증 통과 후 사용자 결정
 - 테스트용 훅(test-notify-telegram.sh, test-shared-context.sh) 제거는 swap 시 동시 진행
 - 커밋: c34dc57
+
+### 옵션 X: Orchestrator 에이전트 자체 제거 — ✅ 완료 (2026-05-22)
+
+- ~~`.claude/agents/orchestrator.md`~~ (제거됨, 옵션 X) 및 ~~`.claude/agents/orchestrator/examples.md`~~ (제거됨, 옵션 X) 삭제
+- `.claude/agents/orchestrator/{catalog,recipes,pushback-trigger}.md` → `.claude/dispatch/{catalog,recipes,pushback-trigger}.md` 이전
+- Main Agent가 디스패처 + 워크플로 조합 + Pushback Trigger 평가 역할을 모두 수행 (1-tier 구조)
+- 7 에이전트 .md / 12 SKILL.md의 orchestrator 참조 정리
+- harness.md / CLAUDE.md 아키텍처 절 갱신
+- 매핑 plan + prompt-flow 문서 갱신
 
 ### Phase 5: 정적 검증·전환 준비 완료 — ✅ 완료 (2026-05-22)
 

@@ -17,10 +17,10 @@
 
 예시:
 ```
-.claude/agent-memory/orchestrator/MEMORY.md
-.claude/agent-memory/orchestrator/lessons-learned.md
-.claude/agent-memory/orchestrator/trigger-log.md
-.claude/agent-memory/orchestrator/subagent-hallucination.md
+.claude/agent-memory/main/MEMORY.md
+.claude/agent-memory/main/lessons-learned.md
+.claude/agent-memory/main/trigger-log.md
+.claude/agent-memory/main/subagent-hallucination.md
 .claude/agent-memory/coder/MEMORY.md
 .claude/agent-memory/coder/build-patterns.md
 .claude/agent-memory/reviewer/MEMORY.md
@@ -74,7 +74,7 @@
 
 에이전트 파일에서 구체적 예시를 유지한다. 공통 참고용 예시:
 
-- orchestrator: `lessons-learned.md` (도메인별 사전 확률 가중치), `trigger-log.md` (pushback 트리거 통계), `subagent-hallucination.md` (데이터 날조 패턴)
+- main (Main Agent): `lessons-learned.md` (도메인별 사전 확률 가중치), `trigger-log.md` (pushback 트리거 통계), `subagent-hallucination.md` (데이터 날조 패턴)
 - coder: `build-patterns.md` (빌드·테스트 명령, 에러 패턴), `code-conventions.md` (프로젝트 컨벤션)
 - reviewer: `code-smells.md` (반복 지적 패턴), `test-coverage.md` (커버리지 기준)
 - security: `vuln-patterns.md` (인증·인가 구조, 반복 취약점), `blocked-issues.md` (BLOCK 이슈 이력)

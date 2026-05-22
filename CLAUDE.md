@@ -12,24 +12,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 디렉토리 구조
 
 - `.claude/skills/` - 커스텀 Claude Code 스킬 정의 (SKILL.md 파일, 12개)
-- `.claude/agents/` - 커스텀 에이전트 정의 (8개)
+- `.claude/agents/` - 커스텀 에이전트 정의 (7개)
 - `.claude/hooks/` - Claude Code 훅 스크립트 (품질 게이트, 공유 컨텍스트, 텔레그램 알림 등)
 - `.claude/rules/` - 공통 규칙 파일 5개: 안티패턴 3종(Python, TypeScript, General) + `source-hierarchy.md`(자료 등급 Tier 1~4 정본) + `epistemic-honesty.md`(단정 회피·자신감 라벨·비유 제약 정본)
-- `.claude/agent-memory/` - 에이전트별 영속 메모리 저장소 (세션 간 지식 축적, 예: `orchestrator/lessons-learned.md`에 사용자 직관 옳았던 사례·도메인 사전 확률 가중치 누적)
+- `.claude/dispatch/` - 디스패치 카탈로그·레시피·반박 트리거 정본 (Main Agent가 직접 참조): `catalog.md`(Skill·Agent 카탈로그), `recipes.md`(워크플로 레시피), `pushback-trigger.md`(사용자 반박 자동 대응)
+- `.claude/agent-memory/` - 에이전트별 영속 메모리 저장소 (세션 간 지식 축적, 예: `main/lessons-learned.md`에 사용자 직관 옳았던 사례·도메인 사전 확률 가중치 누적)
 - `.claude/shared-context/` - 에이전트 간 공유 컨텍스트 저장소 (런타임 생성, .gitignore)
 - `.claude/shared-context-config.json` - 공유 컨텍스트 설정 (TTL, 최대 항목 수 등)
 - `docs/` - 기능 문서 및 리서치 결과 저장
 - `harness.sh` - CLI 설치/업데이트 도구 (다른 프로젝트에 harness 설치)
 - `TODO.md` - 미해결 작업 추적
 
-## 아키텍처 (2-tier, Orchestrator-Driven)
+## 아키텍처 (1-tier, Main-Agent-Driven)
 
-Main Agent는 순수 디스패처로, 슬래시 커맨드만 직접 호출하고 그 외 모든 요청은 Orchestrator에게 위임합니다.
-Orchestrator는 요구를 분석하여 스킬을 동적으로 조합하고 이행합니다.
+Main Agent는 디스패처 + 워크플로 조합 역할을 모두 수행합니다. `dispatch/catalog.md`를 참조하여 워커·스킬을 직접 호출하고 조합합니다. 자세한 흐름은 `docs/prompt-flow-after-cleanup-20260522.md` 참조.
 
 ### 위임 권고
 
-Orchestrator는 가능하면 워커 스킬·에이전트에 작업을 위임한다. 단, 위임은 권고이며 강제하지 않는다. 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 Main Agent·Orchestrator의 직접 처리도 허용된다.
+Main Agent는 가능하면 워커 스킬·에이전트에 작업을 위임한다. 단, 위임은 권고이며 강제하지 않는다. 단순 안내·질문·1줄 .md 수정처럼 위임 오버헤드가 더 큰 경우 Main Agent의 직접 처리도 허용된다.
 
 ## 사용자 반박 대응 메커니즘
 
@@ -37,15 +37,15 @@ Orchestrator는 가능하면 워커 스킬·에이전트에 작업을 위임한�
 
 - 자료 등급(Source Hierarchy) Tier 1~4의 정본은 `.claude/rules/source-hierarchy.md`에 있습니다. 법률·청약·세무·의료·금융 등 1차 자료 도달 강제 도메인 목록도 같은 파일에서 관리합니다.
 - 단정 회피·자신감 라벨(`확실`/`추정`/`모름`)·비유 사용 제약의 정본은 `.claude/rules/epistemic-honesty.md`에 있습니다. 모든 사실 진술에 Tier 라벨과 자신감 라벨을 동반합니다.
-- 사용자 반박 키워드(예: "정말?", "확실해?", "근거는?", "내 생각엔 X인데") 감지 시 자동 Self-Check 5문항을 수행하고 한 문항이라도 No이면 deepresearch를 호출해 1차 자료를 재확인하는 메커니즘은 `.claude/agents/orchestrator.md`의 `## Self-Check on Pushback` 및 `## Pushback Trigger` 절에 정의되어 있습니다. researcher 에이전트(`.claude/agents/researcher.md`)에도 동일한 Self-Check 절이 있습니다.
-- 도메인별 사전 확률 가중치(사용자 직관이 옳았던 사례·반복 패턴)는 `.claude/agent-memory/orchestrator/lessons-learned.md`에 누적되며, 반박 대응 시 참고됩니다.
+- 사용자 반박 키워드(예: "정말?", "확실해?", "근거는?", "내 생각엔 X인데") 감지 시 자동 Self-Check 5문항을 수행하고 한 문항이라도 No이면 deepresearch를 호출해 1차 자료를 재확인하는 메커니즘의 정본은 `.claude/dispatch/pushback-trigger.md`에 있습니다. Main Agent가 직접 평가합니다. researcher 에이전트(`.claude/agents/researcher.md`)에도 동일한 Self-Check 절이 있습니다.
+- 도메인별 사전 확률 가중치(사용자 직관이 옳았던 사례·반복 패턴)는 `.claude/agent-memory/main/lessons-learned.md`에 누적되며, 반박 대응 시 참고됩니다.
 
 ## 주요 스킬 (12개)
 
 ### code
 코드 작성/수정/진단/패치 통합 스킬입니다.
 - 호출: `/code <작업 지시>`
-- Orchestrator가 모든 코드 변경 작업에 사용
+- Main Agent가 모든 코드 변경 작업에 사용
 - context-mode MCP로 대용량 빌드/테스트 출력의 컨텍스트 윈도우 절약
 
 ### test
@@ -98,8 +98,8 @@ Orchestrator는 가능하면 워커 스킬·에이전트에 작업을 위임한�
 ### sync-docs
 harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬입니다.
 - 호출: `/sync-docs [--check-only]`
-- `.claude/` 하위 스킬/에이전트/훅 변경을 감지하여 CLAUDE.md, harness.md, orchestrator.md를 업데이트
-- Orchestrator가 scaffold 또는 harness 파일 변경 후 자동 호출
+- `.claude/` 하위 스킬/에이전트/훅 변경을 감지하여 CLAUDE.md, harness.md를 업데이트
+- Main Agent가 scaffold 또는 harness 파일 변경 후 자동 호출
 
 ## 훅
 
@@ -108,7 +108,7 @@ harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬�
 | `task-quality-gate.sh` | TaskCompleted | 구현 태스크 완료 시 빌드/테스트 자동 검증 |
 | `teammate-idle-check.sh` | TeammateIdle | 미완료 팀원 유휴 시 작업 재개 유도 |
 | `verify-build-test.sh` | - | 프로젝트별 빌드/테스트 자동 실행 |
-| `notify-telegram.sh` | SubagentStop | Orchestrator 완료 시 텔레그램 알림 |
+| `notify-telegram.sh` | SubagentStop | 서브에이전트 완료 시 텔레그램 알림 |
 | `shared-context-inject.sh` | SubagentStart | 이전 에이전트 작업 요약 주입 |
 | `shared-context-collect.sh` | SubagentStop | 에이전트 작업 결과 수집 |
 | `shared-context-cleanup.sh` | SessionStart | TTL 만료 세션 정리 |
@@ -125,12 +125,12 @@ harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬�
 
 ## 파이프라인 시스템 (설계 완료, 미구현)
 
-Orchestrator의 동적 계획을 정형화된 파이프라인으로 확장하는 시스템입니다.
+Main Agent의 워크플로 조합을 정형화된 파이프라인으로 확장하는 시스템입니다.
 
 - JSON 스키마 설계 완료: 노드 8종 (start, end, skill, agent, fork, join, condition, loop)
 - 설계 문서: `docs/research-pipeline-json-schema-20260216.md`
 - 비주얼 에디터: 별도 프로젝트 (`~/Projects/pipeline-editor/`, React + React Flow)
-- Orchestrator는 파이프라인을 Read-only로 실행, 생성/수정은 사용자만 수행
+- Main Agent는 파이프라인을 Read-only로 실행, 생성/수정은 사용자만 수행
 
 ## 문서 작성 규칙
 

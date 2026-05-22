@@ -1,5 +1,5 @@
-# Orchestrator Skill Catalog
-> orchestrator의 Skill Catalog 정본. 본 파일이 정본이며 orchestrator.md에서는 cross-link로 참조한다.
+# Dispatch Skill Catalog
+> Main Agent의 디스패치 시 참조하는 Skill·Agent 카탈로그 정본. `harness.md` 및 `CLAUDE.md`에서 cross-link로 참조한다.
 
 ### Research & Planning
 
@@ -42,7 +42,7 @@
 | `team-review` | coder | Multi-lens review for large/high-risk changes |
 | `qa-swarm` | coder | Parallel QA for diverse test suites |
 
-Note: `/ultrareview` (Claude Code 공식 슬래시 커맨드, 별도 과금/background 실행)는 Orchestrator가 자동 호출하지 않는다. 사용자가 명시적으로 요청한 경우에만 안내한다. 자체 판단으로 다관점 리뷰가 필요하면 `team-review`를 사용한다. 상세 비교는 `docs/research-ultrareview-vs-team-review-20260516.md` 참고.
+Note: `/ultrareview` (Claude Code 공식 슬래시 커맨드, 별도 과금/background 실행)는 Main Agent가 자동 호출하지 않는다. 사용자가 명시적으로 요청한 경우에만 안내한다. 자체 판단으로 다관점 리뷰가 필요하면 `team-review`를 사용한다. 상세 비교는 `docs/research-ultrareview-vs-team-review-20260516.md` 참고.
 
 ## OMC 호환 매핑 (Phase 3)
 
@@ -69,7 +69,7 @@ Note: `/ultrareview` (Claude Code 공식 슬래시 커맨드, 별도 과금/back
 
 | hoodcat agent | OMC agent | 모델 | 비고 |
 |---------------|-----------|------|------|
-| orchestrator | (planner + main agent 디스패치) | opus | OMC는 Claude main agent가 디스패처. 동적 계획은 planner로. |
+| orchestrator | (제거됨, 옵션 X 2026-05-22) | — | Main Agent가 디스패처+워크플로 조합 역할 흡수. catalog/recipes 직접 참조. |
 | coder | executor | sonnet (복잡 시 opus) | 1:1 매핑 |
 | researcher | document-specialist (+scientist) | sonnet | 단일 주제 조사 |
 | committer | git-master | sonnet | conventional commit 자동 감지 |

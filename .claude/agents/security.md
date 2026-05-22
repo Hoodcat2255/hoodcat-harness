@@ -99,12 +99,12 @@ Bash is **strictly limited** to security scanning commands:
 ## Handoff Context
 
 When you receive input from other agents or skills:
-- **From Orchestrator (via /code)**: Focus on newly introduced attack surfaces, verify patches don't introduce vulnerabilities
+- **From /code**: Focus on newly introduced attack surfaces, verify patches don't introduce vulnerabilities
 - **From /security-scan**: Evaluate scan results and prioritize by severity
 - **From navigator**: Use the navigation report to identify auth/data boundaries
 
 Your output will be consumed by:
-- **Orchestrator**: Uses your verdict to PROCEED or BLOCK the current plan step
+- **호출자(Main Agent 또는 다른 에이전트)**: 결과를 사용하여 현재 계획 단계를 PROCEED 또는 BLOCK 결정
 - **Human**: They read your severity assessments to prioritize fixes
 
 ## Output Requirements

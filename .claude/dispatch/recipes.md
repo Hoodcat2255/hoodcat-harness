@@ -1,5 +1,5 @@
-# Orchestrator Recipes
-> orchestrator의 Recipes 정본. 본 파일이 정본이며 orchestrator.md에서는 cross-link로 참조한다.
+# Dispatch Recipes
+> Main Agent의 워크플로 조합 시 참조하는 레시피 정본. `harness.md` 및 `CLAUDE.md`에서 cross-link로 참조한다.
 
 Common skill composition patterns. These are guidelines, not rigid sequences.
 Adapt based on context: skip unnecessary steps, add extra steps, reorder, repeat.

@@ -95,7 +95,7 @@ pre-commit hook이 실패하면:
 
 ## REVIEW 연동
 
-commit은 리뷰 없이 자동 완료한다. 코드 품질 리뷰는 Orchestrator가 /code 이후 Task(reviewer)로 수행한다.
+commit은 리뷰 없이 자동 완료한다. 코드 품질 리뷰는 호출자(Main Agent 또는 다른 에이전트)가 /code 이후 Task(reviewer)로 수행한다.
 
 ## OMC 호환 호출 (Phase 2 매핑)
 

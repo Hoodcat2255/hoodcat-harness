@@ -88,9 +88,9 @@ TaskCompleted 훅(task-quality-gate.sh)이 구현 태스크의 빌드/테스트�
 
 @output-template.md 참조
 
-## Orchestrator 통합
+## 호출자 통합
 
-Orchestrator가 새 프로젝트 또는 대규모 변경의 QA 단계에서 qa-swarm을 선택할 수 있다:
+호출자(Main Agent 또는 워크플로우)가 새 프로젝트 또는 대규모 변경의 QA 단계에서 qa-swarm을 선택할 수 있다:
 - 테스트 스위트가 다양한 프로젝트 → `Skill("qa-swarm", "<프로젝트 경로>")`
 - 단순 프로젝트 → `Skill("test", "<전체 또는 변경된 모듈>")`
 

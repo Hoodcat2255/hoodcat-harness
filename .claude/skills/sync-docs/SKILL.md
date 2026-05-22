@@ -55,8 +55,10 @@ $ARGUMENTS: (선택) --check-only 플래그 또는 변경 설명.
 - `### 에이전트 (N개)` - 에이전트 테이블
 - `## 훅` 하위 섹션들
 
-**orchestrator.md 파싱 대상:**
-- `## Skill Catalog` - 스킬 카탈로그 테이블들
+**dispatch/*.md 파싱 대상:**
+- `dispatch/catalog.md` — `## Skill Catalog` 스킬 카탈로그 테이블들
+- `dispatch/recipes.md` — 레시피 워크플로 패턴
+- `dispatch/pushback-trigger.md` — 트리거 키워드 및 동작 정의
 
 ### 3. 불일치 감지
 
@@ -88,9 +90,9 @@ $ARGUMENTS: (선택) --check-only 플래그 또는 변경 설명.
 - `### 에이전트 (N개)` 헤더와 테이블 동기화
 - 훅 관련 섹션 동기화
 
-**orchestrator.md 업데이트:**
-- `## Skill Catalog`의 테이블에 누락된 스킬 추가
-- 삭제된 스킬 행 제거
+**dispatch/*.md 업데이트:**
+- `dispatch/catalog.md`의 `## Skill Catalog` 테이블에 누락된 스킬 추가 / 삭제된 스킬 행 제거
+- `dispatch/recipes.md` 및 `dispatch/pushback-trigger.md`는 수동 변경 사항이 있을 때만 갱신
 
 ### 5. harness.sh 검증
 
@@ -110,7 +112,7 @@ harness.sh의 TEMPLATE_DIRS 배열을 확인:
 ### 업데이트된 파일
 - `CLAUDE.md` — [수정 내용 요약]
 - `.claude/harness.md` — [수정 내용 요약]
-- `.claude/agents/orchestrator.md` — [수정 내용 요약]
+- `.claude/dispatch/{catalog,recipes,pushback-trigger}.md` — [수정 내용 요약]
 
 ### harness.sh 주의사항
 - [TEMPLATE_DIRS 관련 경고 (있는 경우)]
@@ -124,14 +126,14 @@ harness.sh의 TEMPLATE_DIRS 배열을 확인:
 ## REVIEW 연동
 
 sync-docs는 문서 파일만 수정하므로 자체 리뷰는 불필요.
-Orchestrator가 전체 작업 흐름에서 리뷰 필요성을 판단한다.
+호출자(Main Agent 또는 다른 에이전트)가 전체 작업 흐름에서 리뷰 필요성을 판단한다.
 
 ## OMC 호환 상태: 미매핑 (Phase 2 매핑)
 
 OMC 카탈로그에 hoodcat 내부 문서 동기화 전용 워크플로가 없다. hoodcat-harness 고유 메타-스킬이므로 커스텀 유지 필요.
 
 대안:
-- 임시: `oh-my-claudecode:writer`에 CLAUDE.md/harness.md/orchestrator.md 동기화 작업으로 위임
+- 임시: writer에 CLAUDE.md/harness.md/dispatch/*.md 동기화 작업으로 위임
 - 장기: hoodcat-harness가 OMC로 완전 흡수되면 본 스킬은 불필요
 
 매핑 신뢰도: 낮음. 자세한 사항은 `docs/migration-omc-mapping-20260522.md` 2절 참조.

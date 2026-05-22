@@ -49,8 +49,7 @@
 - security → `## Security Report`
   섹션: Verdict / Attack Surfaces / OWASP Categories / Vulnerabilities / Dependency Audit
 
-- orchestrator → `## Orchestrator Report`
-  섹션: Plan / Steps Executed / Files Changed / Review Verdicts / Unresolved Issues
+- (main agent의 사용자 최종 보고는 별도 형식 — `## Plan Completed` 마크다운, `harness.md` 및 `dispatch/recipes.md` 참조)
 
 ## 4. 보고 형식 공통 구조 예시
 
