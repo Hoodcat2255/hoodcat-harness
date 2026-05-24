@@ -376,11 +376,15 @@ setup_context_mode_mcp() {
     
     log_info "context-mode MCP 서버 설정 중..."
     if dry_run_guard "context-mode MCP 서버 등록"; then
-        if (cd "$target" && claude mcp add context-mode -- npx -y context-mode) 2>/dev/null; then
+        local mcp_output
+        if mcp_output=$(cd "$target" && claude mcp add context-mode -- npx -y context-mode 2>&1); then
             log_info "context-mode MCP 서버 등록 완료"
+        elif printf '%s' "$mcp_output" | grep -qi "already exists"; then
+            # 이미 등록됨 — 실패가 아니라 정상. claude mcp add는 중복 시 non-zero를 반환한다.
+            log_info "context-mode MCP 서버가 이미 등록되어 있습니다 (스킵)"
         else
-            log_warn "context-mode MCP 서버 자동 등록 실패. 수동으로 실행하세요:"
-            log_warn "  cd $target && claude mcp add context-mode -- npx -y context-mode"
+            log_warn "context-mode MCP 서버 자동 등록 실패: ${mcp_output}"
+            log_warn "  수동 실행: cd $target && claude mcp add context-mode -- npx -y context-mode"
         fi
     fi
 }
