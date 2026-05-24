@@ -25,6 +25,14 @@ claude-dashboard 실데이터 분석 결과 오케스트레이터가 스킬/에�
 - [x] Phase 4: 10 운영 훅에 OMC 매핑 주석 + settings-omc.json.example 작성
 - [x] Phase 5: 정적 검증 (V1~V6) 모두 통과
 
+### Install/Update 스크립트 fix — ✅ 완료 (2026-05-24)
+- `harness.sh` `TEMPLATE_DIRS`에 `dispatch` 추가 (옵션 X로 추가된 새 디렉토리 누락 fix)
+- `merge_settings_json`에 옵션 C 적용:
+  - stale hook 항목 (harness 패턴이지만 실제 파일 없음) 자동 제거
+  - 사용자 커스텀 hook 보존
+  - harness 정의 event는 src로 갱신
+- 동작 검증: dispatch 자동 복사 ✓, stale enforce-delegation 항목 제거 ✓, 커스텀 hook 보존 ✓
+
 ### Phase X (보너스): Orchestrator 에이전트 자체 제거 — ✅ 완료 (2026-05-22)
 - `.claude/agents/orchestrator.md` 및 `examples.md` 삭제
 - `.claude/agents/orchestrator/{catalog,recipes,pushback-trigger}.md` → `.claude/dispatch/{catalog,recipes,pushback-trigger}.md` 이전

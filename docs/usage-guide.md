@@ -4,9 +4,9 @@ Claude Code 멀티에이전트 시스템의 사용법을 설명합니다.
 
 ## 개요
 
-hoodcat-harness는 Claude Code의 커스텀 스킬과 에이전트를 조합하여 소프트웨어 개발 워크플로우를 자동화합니다. 8개 에이전트와 11개 스킬이 2-tier Orchestrator-Driven 아키텍처로 협력합니다.
+hoodcat-harness는 Claude Code의 커스텀 스킬과 에이전트를 조합하여 소프트웨어 개발 워크플로우를 자동화합니다. 7개 에이전트와 12개 스킬이 1-tier Main-Agent-Driven 아키텍처로 협력합니다.
 
-Main Agent는 순수한 디스패처로, 슬래시 커맨드만 직접 호출하고 그 외 모든 요청은 Orchestrator에게 위임합니다. Orchestrator가 스킬을 동적으로 조합하고 실행합니다.
+Main Agent는 디스패처 + 워크플로 조합 역할을 모두 수행합니다. 슬래시 커맨드는 해당 스킬을 직접 호출하고, 그 외 자연어 요청은 `.claude/dispatch/catalog.md`·`recipes.md`를 참조하여 워커 스킬·에이전트를 직접 호출·조합합니다.
 
 ## 새 프로젝트에 적용하기
 
@@ -32,10 +32,11 @@ harness config
 설치 시 CLAUDE.md가 없으면 자동 생성되며, 최상단에 `@.claude/harness.md` import가 주입됩니다.
 
 설치되는 파일:
-- `.claude/agents/` - 에이전트 정의 8개
-- `.claude/skills/` - 스킬 정의 11개
-- `.claude/hooks/` - 훅 스크립트 12개
-- `.claude/rules/` - 안티패턴 규칙
+- `.claude/agents/` - 에이전트 정의 7개
+- `.claude/dispatch/` - 카탈로그·레시피·Pushback Trigger (Main Agent 직접 참조)
+- `.claude/skills/` - 스킬 정의 12개
+- `.claude/hooks/` - 훅 스크립트 11개
+- `.claude/rules/` - 공통 룰 (anti-pattern 3종 + source-hierarchy + epistemic-honesty + response-format + shared-context-protocol + agent-memory)
 - `.claude/harness.md` - 공통 지침
 - `.claude/settings.json` - 훅/상태표시줄 설정
 - `.claude/statusline.sh` - 상태표시줄
@@ -43,47 +44,20 @@ harness config
 
 ## 아키텍처
 
-### 2-tier, Orchestrator-Driven
+### 1-tier, Main-Agent-Driven
 
 ```
-Tier 1: Main Agent (순수 디스패처)
+Main Agent (디스패처 + 워크플로 조합)
   ├─ 슬래시 커맨드 (/test, /commit 등) → 해당 스킬 직접 호출
-  └─ 그 외 모든 요청 → Orchestrator에게 위임
-
-Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
+  └─ 그 외 자연어 요청 → .claude/dispatch/catalog.md·recipes.md 참조
+                          → 워커 스킬·에이전트 직접 호출·조합
 ```
 
 Main Agent의 디스패치 규칙:
 1. **슬래시 커맨드** (`/test`, `/commit`, `/deepresearch` 등) → 해당 스킬 직접 호출
-2. **그 외 모든 요청** → Orchestrator에 위임
+2. **그 외 자연어 요청** → `.claude/dispatch/catalog.md`에서 적합한 스킬/에이전트 선택 후 직접 호출·조합
 
-이 규칙에 예외는 없습니다. 버그 수정, 기능 구현, 코드 설명, 리팩토링 등 슬래시 커맨드가 아닌 모든 요청은 Orchestrator가 처리합니다.
-
-### 위임 강제 시스템 (3층 방어)
-
-Main Agent가 직접 코드를 수정하거나 분석하는 것을 방지하는 다층 방어 시스템입니다.
-
-| 층 | 메커니즘 | 역할 |
-|----|---------|------|
-| 1층 | `harness.md` 프롬프트 규칙 | 자기 검증 체크리스트, FORBIDDEN/ALLOWED 행위 목록 |
-| 2층 | `enforce-delegation.sh` (PreToolUse 훅) | Main Agent의 Edit/Write 도구 사용을 물리적으로 차단 |
-| 3층 | `orchestrator.md` 자체 규칙 | Orchestrator가 직접 코드 수정 대신 Skill("code") 위임 |
-
-- 서브에이전트(transcript_path에 `/subagents/` 포함)는 훅 차단 대상에서 제외
-- Write의 경우 `.md` 파일은 허용, 소스코드/설정 파일 확장자는 차단
-- 차단 시 stderr로 위임 안내 메시지가 Claude에게 전달됨
-
-### Orchestrator의 역할
-
-Orchestrator는 하드코딩된 워크플로우를 따르지 않습니다. 요청마다 다음 과정을 동적으로 수행합니다:
-
-1. **분석**: 요구의 성격 파악 (버그? 기능? 리서치? 배포?)
-2. **계획**: 스킬 카탈로그에서 적절한 스킬 선택, 실행 순서 결정
-3. **이행**: `Skill()`과 `Task()`를 순차/병렬 호출하여 계획 실행
-4. **판단**: 각 단계 결과를 평가하고 다음 행동 결정 (적응적 실행)
-5. **보고**: 최종 결과를 Main Agent에 반환
-
-Orchestrator는 레시피를 참고하되, 상황에 따라 단계를 건너뛰거나 추가하거나 순서를 바꿉니다.
+Main Agent가 디스패처와 워크플로 조합 역할을 모두 담당합니다. 별도 Orchestrator 에이전트가 없으며, 자세한 실행 흐름은 `docs/prompt-flow-after-cleanup-20260522.md`를 참조합니다.
 
 ### 실행 흐름 예시
 
@@ -91,15 +65,12 @@ Orchestrator는 레시피를 참고하되, 상황에 따라 단계를 건너뛰�
 [사용자] "로그인 버그 고쳐줘"
      │
      ▼
-[Main Agent] → Task(orchestrator, "로그인 버그 고쳐줘")
-     │
-     ▼
-[Orchestrator]
+[Main Agent] → .claude/dispatch/recipes.md 참조
      ├── 1. Task(navigator)     → 코드베이스 탐색, 영향 범위 파악
      ├── 2. Skill("code")       → 버그 진단 + 패치 (agent: coder)
      ├── 3. Skill("test")       → 회귀 테스트 (agent: coder)
      ├── 4. Task(reviewer)      → 코드 품질 리뷰
-     └── 5. 보고                → Main Agent에 결과 반환
+     └── 5. 결과 보고            → 사용자에게 직접 반환
 ```
 
 ## 스킬 목록
@@ -144,23 +115,22 @@ Orchestrator는 레시피를 참고하되, 상황에 따라 단계를 건너뛰�
 
 ## 에이전트 목록
 
-8개의 에이전트가 역할에 따라 자동으로 호출됩니다.
+7개의 에이전트가 역할에 따라 자동으로 호출됩니다.
 
 ### 실행 에이전트
 
 | 에이전트 | 역할 | 호출 방식 |
 |----------|------|----------|
-| **orchestrator** | 동적 계획 + 이행. 스킬 조합, 적응적 실행 | Main Agent가 `Task()`로 호출 |
 | **coder** | 코딩, 빌드, 테스트 실행 | `/code`, `/test` 등 스킬의 agent로 지정 |
 | **committer** | Git 커밋 전용 (최소 권한, sonnet 모델) | `/commit` 스킬의 agent |
 | **researcher** | 웹 검색, Context7 문서, 구조화된 문서 작성 | `/deepresearch`, `/blueprint`, `/decide` 스킬의 agent |
 
-### 리뷰 에이전트
+### 리뷰 에이전트 (read-only)
 
 | 에이전트 | 역할 | 호출 시점 |
 |----------|------|----------|
-| **navigator** | 코드베이스 탐색, 파일 매핑, 영향 범위 파악 | 코드 변경 전 컨텍스트 수집 |
-| **reviewer** | 코드 품질 리뷰 (가독성, 일관성, 에러 처리) | 코드 변경 후 품질 검증 |
+| **navigator** | 코드베이스 탐색, 파일 매핑, 영향 범위 파악 (model: sonnet) | 코드 변경 전 컨텍스트 수집 |
+| **reviewer** | 코드 품질 리뷰 (가독성, 일관성, 에러 처리) (model: sonnet) | 코드 변경 후 품질 검증 |
 | **security** | 보안 리뷰 (OWASP Top 10, 인증, 입력 검증) | 인증/보안 관련 코드 변경 시 |
 | **architect** | 아키텍처 리뷰 (구조, 확장성, 기술 스택) | 설계 문서 리뷰, 대규모 구조 변경 시 |
 
@@ -169,9 +139,9 @@ Orchestrator는 레시피를 참고하되, 상황에 따라 단계를 건너뛰�
 - **WARN**: 경고 사항 있지만 진행 가능
 - **BLOCK**: 수정 필요, 최대 2회 재시도 후에도 BLOCK이면 사용자에게 판단 요청
 
-## Orchestrator 레시피
+## 레시피 (dispatch/recipes.md)
 
-Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제로는 상황에 따라 동적으로 변합니다.
+Main Agent가 참고하는 대표적인 스킬 조합 패턴입니다. 실제로는 상황에 따라 동적으로 변합니다.
 
 ### 기능 구현
 
@@ -210,13 +180,7 @@ Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제�
 
 ## 훅 시스템
 
-12개의 훅 스크립트가 자동화된 품질 관리와 에이전트 간 협업을 지원합니다.
-
-### 위임 강제
-
-| 훅 | 이벤트 | 용도 |
-|----|--------|------|
-| `enforce-delegation.sh` | PreToolUse (Edit\|Write) | Main Agent의 직접 코드 수정 차단 |
+11개의 훅 스크립트가 자동화된 품질 관리와 에이전트 간 협업을 지원합니다.
 
 ### 품질 게이트
 
@@ -239,7 +203,7 @@ Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제�
 
 | 훅 | 이벤트 | 용도 |
 |----|--------|------|
-| `notify-telegram.sh` | SubagentStop | Orchestrator 완료 시 텔레그램으로 결과 알림 |
+| `notify-telegram.sh` | SubagentStop | 에이전트 완료 시 텔레그램으로 결과 알림 |
 | `subagent-monitor.sh` | SubagentStop | 서브에이전트 종료 로깅 |
 
 ### 테스트
@@ -270,7 +234,7 @@ Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제�
 
 ## Git Worktree
 
-코드를 수정하는 작업 시 Orchestrator가 git worktree를 자동으로 생성하고 관리합니다.
+코드를 수정하는 작업 시 Main Agent가 git worktree를 자동으로 생성하고 관리합니다.
 
 ### 왜 worktree를 사용하나?
 
@@ -281,7 +245,7 @@ Orchestrator가 참고하는 대표적인 스킬 조합 패턴입니다. 실제�
 ### 동작 방식
 
 ```bash
-# Orchestrator가 자동으로 생성
+# Main Agent가 자동으로 생성
 PROJECT_ROOT=$(git -C "$PWD" rev-parse --show-toplevel)
 WORKTREE_DIR="$(dirname "$PROJECT_ROOT")/${PROJECT_NAME}-{type}-{feature-name}"
 git -C "$PROJECT_ROOT" worktree add "$WORKTREE_DIR" -b "{type}/{feature-name}"
@@ -315,7 +279,7 @@ git worktree remove <path>  # 특정 worktree 제거
 
 ## 텔레그램 알림
 
-Orchestrator 작업 완료 시 텔레그램으로 결과를 자동 알림합니다.
+에이전트 작업 완료 시 텔레그램으로 결과를 자동 알림합니다.
 
 ### 설정
 
@@ -335,36 +299,36 @@ HARNESS_TG_CHAT_ID=your-chat-id
 
 ### 알림 내용
 
-- 작업 유형 (Orchestrator, researcher 등)
+- 작업 유형 (coder, researcher 등)
 - 소요 시간
 - 변경된 파일 목록
 - 작업 요약
 
 ## 파이프라인 시스템 (설계 완료, 미구현)
 
-Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프라인 시스템이 설계되었습니다.
+Main Agent의 동적 레시피를 선언적 JSON으로 정의하는 파이프라인 시스템이 설계되었습니다.
 
 ### 현재 상태
 
 - JSON 스키마 설계 완료 (`docs/research-pipeline-json-schema-20260216.md`)
 - 비주얼 에디터 별도 프로젝트 (`~/Projects/pipeline-editor/`, React + React Flow)
 - 모바일 UX 설계 완료 (`docs/research-mobile-node-editor-ux-20260216.md`)
-- Orchestrator 통합은 미구현
+- Main Agent 통합은 미구현
 
 ### 개념
 
 - 노드 8종: start, end, skill, agent, fork, join, condition, loop
 - 병렬 실행: Fork/Join (wait_policy: all/any/n_of)
 - 루프 3단계: retry(노드), maxTraversals(엣지), Loop 노드(서브그래프)
-- Orchestrator는 파이프라인을 Read-only로 실행, 생성/수정은 사용자만 수행
+- Main Agent는 파이프라인을 Read-only로 실행, 생성/수정은 사용자만 수행
 
 ## 사용 예시
 
 ```
-# 기능 구현 (자연어 → Orchestrator가 처리)
+# 기능 구현 (자연어 → Main Agent가 dispatch/recipes.md 참조하여 처리)
 "사용자 인증 미들웨어 추가해줘"
 
-# 버그 수정 (자연어 → Orchestrator가 처리)
+# 버그 수정 (자연어 → Main Agent가 dispatch/recipes.md 참조하여 처리)
 "로그인 시 비밀번호 검증이 안 되는 문제 고쳐줘"
 
 # 코드 작성 (슬래시 커맨드 → 직접 호출)
@@ -402,16 +366,19 @@ Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프�
 
 ```
 .claude/
-├── agents/                          # 에이전트 정의 (8개)
-│   ├── orchestrator.md              # 동적 계획 + 이행
+├── agents/                          # 에이전트 정의 (7개, orchestrator 제외)
 │   ├── coder.md                     # 코딩 워커
 │   ├── committer.md                 # Git 커밋 워커
 │   ├── researcher.md                # 리서치/기획 워커
-│   ├── reviewer.md                  # 코드 품질 리뷰
+│   ├── reviewer.md                  # 코드 품질 리뷰 (read-only, sonnet)
 │   ├── security.md                  # 보안 리뷰
 │   ├── architect.md                 # 아키텍처 리뷰
-│   └── navigator.md                 # 코드베이스 탐색
-├── skills/                          # 스킬 정의 (11개, 전부 context: fork)
+│   └── navigator.md                 # 코드베이스 탐색 (read-only, sonnet)
+├── dispatch/                        # Main Agent 직접 참조 카탈로그
+│   ├── catalog.md                   # 스킬·에이전트 카탈로그
+│   ├── recipes.md                   # 스킬 조합 레시피
+│   └── pushback-trigger.md          # Pushback Trigger 정본
+├── skills/                          # 스킬 정의 (12개, 전부 context: fork)
 │   ├── code/SKILL.md                # 코드 작성/수정 (agent: coder)
 │   ├── test/SKILL.md                # 테스트 (agent: coder)
 │   ├── blueprint/SKILL.md           # 설계/기획 (agent: researcher)
@@ -421,10 +388,10 @@ Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프�
 │   ├── deepresearch/SKILL.md        # 심층 조사 (agent: researcher)
 │   ├── decide/SKILL.md              # 의사결정 (agent: researcher)
 │   ├── scaffold/SKILL.md            # 스킬/에이전트 생성 (agent: coder)
+│   ├── sync-docs/SKILL.md           # harness 문서 동기화 (agent: coder)
 │   ├── team-review/SKILL.md         # 멀티렌즈 리뷰 (에이전트팀)
 │   └── qa-swarm/SKILL.md            # 병렬 QA (에이전트팀)
-├── hooks/                           # 훅 스크립트 (12개)
-│   ├── enforce-delegation.sh        # 위임 강제 (PreToolUse)
+├── hooks/                           # 훅 스크립트 (11개)
 │   ├── verify-build-test.sh         # 빌드/테스트 검증 유틸
 │   ├── task-quality-gate.sh         # 태스크 완료 검증
 │   ├── teammate-idle-check.sh       # 팀원 유휴 검사
@@ -436,10 +403,15 @@ Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프�
 │   ├── shared-context-finalize.sh   # 세션 메트릭
 │   ├── test-shared-context.sh       # 공유 컨텍스트 테스트
 │   └── test-notify-telegram.sh      # 텔레그램 알림 테스트
-├── rules/                           # 안티패턴 규칙
+├── rules/                           # 공통 룰
 │   ├── antipatterns-general.md
 │   ├── antipatterns-python.md
-│   └── antipatterns-typescript.md
+│   ├── antipatterns-typescript.md
+│   ├── source-hierarchy.md
+│   ├── epistemic-honesty.md
+│   ├── response-format.md
+│   ├── shared-context-protocol.md
+│   └── agent-memory.md
 ├── agent-memory/                    # 에이전트별 영속 메모리
 ├── shared-context-config.json       # 공유 컨텍스트 설정
 ├── harness.md                       # 공통 지침 (모든 프로젝트에 적용)
@@ -449,27 +421,31 @@ Orchestrator의 동적 레시피를 선언적 JSON으로 정의하는 파이프�
 
 ## 버전 히스토리
 
-### v5 (2026-02-15~16) - 위임 강제 + 파이프라인 설계
-- 위임 강제 시스템 3층 방어 구현 (프롬프트 + PreToolUse 훅 + Orchestrator 규칙)
-- `enforce-delegation.sh` 훅 추가 (Main Agent Edit/Write 물리적 차단)
-- Orchestrator 위임율 개선 (Edit 도구 제거, FORBIDDEN/REQUIRED 규칙, 리뷰 의무화 기준)
+### v6 (2026-05-22) - Orchestrator 제거 + 위임 강제 폐지 (옵션 A·X)
+- 옵션 A: 위임 강제 시스템 전체 폐지 (`enforce-delegation.sh` 삭제, ABSOLUTE RULES 절 제거)
+- 옵션 X: Orchestrator 에이전트 자체 제거 (`orchestrator.md` + `examples.md` 삭제)
+- `.claude/agents/orchestrator/{catalog,recipes,pushback-trigger}.md` → `.claude/dispatch/`로 이전
+- Main Agent가 디스패처 + 워크플로 조합 + Pushback Trigger 평가 모두 수행 (1-tier)
+- 에이전트 8개 → 7개, 스킬 11개 → 12개 (`sync-docs` 추가)
+- `harness.sh` TEMPLATE_DIRS에 `dispatch` 추가, `merge_settings_json` 옵션 C 적용
+
+### v5 (2026-02-15~16) - 위임 강제 + 파이프라인 설계 (역사적 기록)
+- 위임 강제 시스템 3층 방어 구현 (프롬프트 + PreToolUse 훅 + Orchestrator 규칙) — v6에서 폐지
 - 파이프라인 JSON 스키마 설계 완료 (노드 8종, Fork/Join, Loop)
 - 파이프라인 비주얼 에디터 설계 (React Flow 기반, 모바일 UX)
 - `harness.sh`에 `shared-context-config.json` 설치/업데이트 추가
 - 리서치 문서 6건 추가
 
-### v4 (2026-02-14) - 2-tier Orchestrator-Driven 전환
-- workflow 에이전트를 orchestrator로 교체
+### v4 (2026-02-14) - Orchestrator-Driven 전환 (역사적 기록)
+- workflow 에이전트를 orchestrator로 교체 — v6에서 제거
 - 워크플로우 스킬 5개(bugfix/hotfix/implement/improve/new-project) + fix 삭제
 - `/code`와 `/scaffold` 스킬 신규 추가
-- Main Agent를 순수 디스패처로 전환 (슬래시 커맨드 직접 호출 + 나머지 Orchestrator 위임)
 - 공유 컨텍스트 시스템 도입 (훅 5개 추가)
 - 에이전트 5개 → 8개 (orchestrator, coder, committer, researcher 추가)
 - 텔레그램 알림 훅 추가
 
 ### v3 (2026-02-12) - 전체 Fork 전환
 - 모든 스킬에 `context: fork` 적용
-- 메인 에이전트를 순수 오케스트레이터로 전환
 - `workflow` 에이전트 신규 추가
 - Sisyphus 강제속행 메커니즘 제거
 

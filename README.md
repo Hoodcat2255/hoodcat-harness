@@ -1,6 +1,6 @@
 # hoodcat-harness
 
-Claude Code용 멀티에이전트 시스템. 8개 에이전트와 11개 스킬을 프로젝트에 설치하여 Claude Code의 기능을 확장한다.
+Claude Code용 멀티에이전트 시스템. 7개 에이전트와 12개 스킬을 프로젝트에 설치하여 Claude Code의 기능을 확장한다.
 
 ## 요구 사항
 
@@ -68,36 +68,34 @@ harness status ~/Projects/my-app
 
 ## 아키텍처
 
-2-tier, Orchestrator-Driven 아키텍처를 사용한다.
+1-tier, Main-Agent-Driven 아키텍처를 사용한다.
 
 ```
-Tier 1: Main Agent (순수 디스패처)
+Main Agent (디스패처 + 워크플로 조합)
   ├─ 슬래시 커맨드 → 해당 스킬 직접 호출
-  └─ 그 외 모든 요청 → Orchestrator에게 위임
-
-Tier 2: Orchestrator + 워커 스킬 + 리뷰 에이전트
+  └─ 그 외 자연어 요청 → .claude/dispatch/catalog.md·recipes.md 참조
+                          → 워커 스킬·에이전트 직접 호출·조합
 ```
 
-Main Agent는 코드를 직접 읽거나 분석하지 않는다. 슬래시 커맨드만 해당 스킬로 직접 호출하고, 그 외 모든 자연어 요청은 Orchestrator에게 위임한다. Orchestrator는 요구를 분석하여 스킬 카탈로그에서 스킬을 선택하고, 순차/병렬로 조합하여 계획을 이행한다.
+Main Agent는 디스패처 + 워크플로 조합 역할을 모두 수행한다. 슬래시 커맨드는 해당 스킬을 직접 호출하고, 그 외 자연어 요청은 `.claude/dispatch/catalog.md`·`recipes.md`를 참조하여 워커 스킬·에이전트를 직접 호출·조합한다. 자세한 흐름은 `docs/prompt-flow-after-cleanup-20260522.md` 참조.
 
 ## 설치되는 항목
 
 `harness install`은 대상 프로젝트의 `.claude/` 디렉토리에 다음을 복사한다:
 
-### 에이전트 (8개)
+### 에이전트 (7개)
 
 | 에이전트 | 역할 |
 |----------|------|
-| `orchestrator` | 동적 계획 + 이행. 요구 분석, 스킬 조합, 적응적 실행 |
 | `coder` | 코딩. 파일 읽기/쓰기, 빌드, 테스트 |
 | `committer` | Git 작업. 변경 분석, 커밋 생성 (sonnet) |
 | `researcher` | 리서치/기획. 웹 검색, Context7, 문서 작성 |
-| `reviewer` | 코드 품질 리뷰. 유지보수성, 패턴 일관성 |
+| `reviewer` | 코드 품질 리뷰. 유지보수성, 패턴 일관성 (read-only, model: sonnet) |
 | `security` | 보안 리뷰. OWASP Top 10, 인증/인가 |
 | `architect` | 아키텍처 리뷰. 구조 적합성, 확장성 |
-| `navigator` | 코드베이스 탐색. 파일 매핑, 영향 범위 파악 |
+| `navigator` | 코드베이스 탐색. 파일 매핑, 영향 범위 파악 (read-only, model: sonnet) |
 
-### 스킬 (11개)
+### 스킬 (12개)
 
 모든 스킬은 `context: fork`로 서브에이전트에서 격리 실행된다.
 
@@ -112,10 +110,11 @@ Main Agent는 코드를 직접 읽거나 분석하지 않는다. 슬래시 커�
 | `/deepresearch` | researcher | 웹 검색 + Context7 기반 심층 조사 |
 | `/decide` | researcher | 옵션 비교, 트레이드오프 분석, 권고 |
 | `/scaffold` | coder | 새 스킬/에이전트 파일 자동 생성 |
+| `/sync-docs` | coder | harness 내부 문서 자동 동기화 (CLAUDE.md/harness.md/dispatch/*.md) |
 | `/team-review` | coder | 3관점 동시 리뷰: 품질/보안/아키텍처 (에이전트팀) |
 | `/qa-swarm` | coder | 병렬 QA: 테스트/린트/보안 동시 실행 (에이전트팀) |
 
-### 훅 (9개)
+### 훅 (11개)
 
 | 훅 | 이벤트 | 설명 |
 |----|--------|------|
@@ -123,20 +122,24 @@ Main Agent는 코드를 직접 읽거나 분석하지 않는다. 슬래시 커�
 | `task-quality-gate.sh` | TaskCompleted | 에이전트팀 태스크 완료 시 빌드/테스트 자동 검증 |
 | `teammate-idle-check.sh` | TeammateIdle | 미완료 태스크가 있는 팀원 유휴 시 작업 재개 유도 |
 | `subagent-monitor.sh` | SubagentStop | 서브에이전트 종료 로깅 |
+| `notify-telegram.sh` | SubagentStop | 에이전트 완료 시 텔레그램으로 결과 알림 |
 | `shared-context-inject.sh` | SubagentStart | 이전 에이전트 작업 요약을 컨텍스트로 주입 |
 | `shared-context-collect.sh` | SubagentStop | 에이전트 작업 결과 자동 수집 |
 | `shared-context-cleanup.sh` | SessionStart | TTL 만료된 공유 컨텍스트 세션 정리 |
 | `shared-context-finalize.sh` | SessionEnd | 세션 메트릭 기록 |
 | `test-shared-context.sh` | (테스트) | 공유 컨텍스트 시스템 동작 검증용 |
+| `test-notify-telegram.sh` | (테스트) | 텔레그램 알림 훅 동작 검증용 |
 
 ### 기타
 
 | 항목 | 설명 |
 |------|------|
-| `.claude/rules/` | 언어별 anti-pattern 규칙 (general, python, typescript) |
+| `.claude/dispatch/` | Skill·Agent 카탈로그·레시피·Pushback Trigger 정본 (Main Agent가 직접 참조) |
+| `.claude/rules/` | 공통 룰 — anti-pattern 3종(general/python/typescript) + source-hierarchy + epistemic-honesty + response-format + shared-context-protocol + agent-memory |
 | `.claude/harness.md` | 공통 지침 파일 (모든 프로젝트에 적용) |
 | `.claude/shared-context-config.json` | 공유 컨텍스트 시스템 설정 (TTL, 필터 등) |
 | `.claude/settings.json` | 훅 등록 + 상태표시줄 설정 |
+| `.claude/settings-omc.json.example` | OMC 전환용 settings.json 예시 |
 | `.claude/statusline.sh` | 모델, 컨텍스트, git 상태 표시 |
 
 `CLAUDE.md`는 프로젝트에 없으면 자동 생성하며, 최상단에 `@.claude/harness.md` import를 주입한다. 이미 존재하면 import만 최상단으로 이동시킨다.
@@ -151,6 +154,13 @@ harness delete ~/Projects/my-app
 ./uninstall.sh
 ```
 
+## settings.json 머지 정책 (옵션 C)
+
+`harness update`는 기존 `settings.json`의 `hooks` 영역에서 다음을 처리한다:
+- harness가 제공하지 않는 stale hook 항목 (예: `${CLAUDE_PROJECT_DIR}/.claude/hooks/<제거된-파일>.sh` 가리키는 항목) 자동 제거
+- 사용자 커스텀 hook (다른 경로·다른 명령) 그대로 보존
+- harness 정의 event는 최신 src로 덮어씀
+
 ## 디렉토리 구조
 
 ```
@@ -162,14 +172,16 @@ hoodcat-harness/
 │   ├── harness.bash        # bash 탭 완성
 │   └── harness.zsh         # zsh 탭 완성
 ├── .claude/
-│   ├── agents/             # 에이전트 정의 (8개)
-│   ├── skills/             # 스킬 정의 (11개)
-│   ├── rules/              # 코드 규칙
-│   ├── hooks/              # 훅 스크립트 (9개)
+│   ├── agents/             # 에이전트 정의 (7개, orchestrator 제외)
+│   ├── dispatch/           # 카탈로그·레시피·Pushback Trigger (Main Agent 직접 참조)
+│   ├── skills/             # 스킬 정의 (12개)
+│   ├── rules/              # 공통 룰 (anti-pattern + 인식론적 정직 + 응답 형식 등)
+│   ├── hooks/              # 훅 스크립트 (11개)
 │   ├── agent-memory/       # 에이전트별 영속 메모리
 │   ├── shared-context-config.json  # 공유 컨텍스트 설정
 │   ├── harness.md          # 공통 지침
 │   ├── settings.json       # 훅/상태표시줄 설정
+│   ├── settings-omc.json.example   # OMC 전환용 settings.json 예시
 │   └── statusline.sh       # 상태표시줄
 ├── docs/                   # 리서치 결과 및 계획 문서
 └── CLAUDE.md               # 프로젝트 지침 (이 저장소용)

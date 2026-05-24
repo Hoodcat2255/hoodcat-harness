@@ -19,7 +19,7 @@ readonly SOURCE_CLAUDE_DIR="${SCRIPT_DIR}/.claude"
 readonly META_FILE=".claude/.harness-meta.json"
 
 # 복사 대상 디렉토리 (템플릿)
-readonly TEMPLATE_DIRS=(agents skills rules hooks)
+readonly TEMPLATE_DIRS=(agents skills rules hooks dispatch)
 
 # .gitignore에 추가할 항목
 readonly GITIGNORE_ENTRIES=(
@@ -124,12 +124,66 @@ init_runtime_dirs() {
 }
 
 merge_settings_json() {
-    local src="$1"  # harness (우선)
-    local dst="$2"  # 기존
+    local src="$1"        # harness (우선)
+    local dst="$2"        # 기존
+    local target="${3:-}" # target project root (옵션 C 검증용)
+
     if ! command -v jq &>/dev/null; then
         return 1
     fi
-    jq -s '.[0] * .[1]' "$dst" "$src"
+
+    # 옵션 C: target이 지정된 경우, dst의 stale hook 항목을 제거한다.
+    # stale = command가 ${CLAUDE_PROJECT_DIR}/.claude/hooks/<name>.sh 패턴이고
+    #         실제 target/.claude/hooks/ 에 해당 파일이 없는 경우.
+    local cleaned_dst
+    if [[ -n "$target" ]]; then
+        # (1) dst의 모든 hook command 목록 추출 (중복 제거)
+        local current_hooks
+        current_hooks=$(jq -r '
+            [.hooks // {} | to_entries[] | .value[] | .hooks[] | .command]
+            | unique
+            | .[]
+        ' "$dst" 2>/dev/null || true)
+
+        # (2) stale command 목록 수집
+        local stale_commands=()
+        while IFS= read -r cmd; do
+            [[ -z "$cmd" ]] && continue
+            if [[ "$cmd" == '${CLAUDE_PROJECT_DIR}/.claude/hooks/'* ]]; then
+                local resolved="${cmd//\$\{CLAUDE_PROJECT_DIR\}/$target}"
+                local first_token
+                first_token=$(awk '{print $1}' <<< "$resolved")
+                if [[ ! -f "$first_token" ]]; then
+                    stale_commands+=("$cmd")
+                fi
+            fi
+        done <<< "$current_hooks"
+
+        # (3) stale 항목을 jq로 제거
+        if [[ ${#stale_commands[@]} -gt 0 ]]; then
+            local stale_json
+            stale_json=$(printf '%s\n' "${stale_commands[@]}" | jq -R . | jq -s .)
+            cleaned_dst=$(jq --argjson stale "$stale_json" '
+                .hooks |= (
+                    with_entries(
+                        .value |= (
+                            map(.hooks |= map(select(.command as $c | ($stale | index($c)) == null)))
+                            | map(select(.hooks | length > 0))
+                        )
+                    )
+                    | with_entries(select(.value | length > 0))
+                )
+            ' "$dst")
+        else
+            cleaned_dst=$(cat "$dst")
+        fi
+    else
+        cleaned_dst=$(cat "$dst")
+    fi
+
+    # (4) cleaned dst와 src를 merge (src 우선)
+    echo "$cleaned_dst" | jq -s --slurpfile src_arr <(cat "$src") \
+        '.[0] * $src_arr[0]'
 }
 
 unmerge_settings_json() {
@@ -199,7 +253,7 @@ copy_settings() {
         if confirm "settings.json을 덮어쓰시겠습니까?"; then
             if dry_run_guard "settings.json 업데이트"; then
                 local merged
-                if merged=$(merge_settings_json "$src" "$dst"); then
+                if merged=$(merge_settings_json "$src" "$dst" "$target"); then
                     echo "$merged" > "$dst"
                     log_info "settings.json 머지 완료 (harness 설정 우선 적용)"
                 else
@@ -216,7 +270,7 @@ copy_settings() {
         if dry_run_guard "settings.json 복사"; then
             if [[ -f "$dst" ]]; then
                 local merged
-                if merged=$(merge_settings_json "$src" "$dst"); then
+                if merged=$(merge_settings_json "$src" "$dst" "$target"); then
                     echo "$merged" > "$dst"
                     log_debug "settings.json 머지 완료 (기존 설정 보존)"
                 else
