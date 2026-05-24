@@ -88,11 +88,30 @@ validate_target() {
     [[ -w "$target" ]] || die "대상 디렉토리에 쓰기 권한이 없습니다: $target"
 }
 
+# .harness-local 매니페스트에 주어진 .claude/ 상대경로가 보존 대상으로 선언돼 있는지 확인.
+# 인자: $1 매니페스트 파일 경로, $2 비교할 항목(예: skills/cheongyak)
+# macOS BSD / Linux 모두 호환되도록 순수 bash로 한 줄씩 읽는다.
+is_local_preserved() {
+    local manifest="$1"
+    local target_entry="$2"
+    [[ -f "$manifest" ]] || return 1
+    local line entry
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        entry="${line%%#*}"
+        entry="${entry#"${entry%%[![:space:]]*}"}"
+        entry="${entry%"${entry##*[![:space:]]}"}"
+        [[ -z "$entry" ]] && continue
+        [[ "$entry" == "$target_entry" ]] && return 0
+    done < "$manifest"
+    return 1
+}
+
 # --- 핵심 함수 ---
 
 copy_template_files() {
     local target="$1"
     local delete_flag="${2:-}"  # "--delete" for update
+    local local_manifest="${target}/.claude/.harness-local"
 
     for dir in "${TEMPLATE_DIRS[@]}"; do
         local src="${SOURCE_CLAUDE_DIR}/${dir}/"
@@ -103,13 +122,30 @@ copy_template_files() {
             continue
         fi
 
+        # rsync 옵션 구성: 기본 -a, update 시 --delete + 매니페스트 보존 exclude
+        local rsync_opts=(-a)
+        if [[ -n "$delete_flag" ]]; then
+            rsync_opts+=(--delete)
+            if [[ -f "$local_manifest" ]]; then
+                local line entry
+                while IFS= read -r line || [[ -n "$line" ]]; do
+                    # 주석(# 이후) 제거
+                    entry="${line%%#*}"
+                    # 앞뒤 공백 트림
+                    entry="${entry#"${entry%%[![:space:]]*}"}"
+                    entry="${entry%"${entry##*[![:space:]]}"}"
+                    [[ -z "$entry" ]] && continue
+                    # 현재 dir에 속한 항목만, 접두사 제거 후 전송 루트 최상위로 앵커
+                    if [[ "$entry" == "${dir}/"* ]]; then
+                        rsync_opts+=("--exclude=/${entry#"${dir}/"}")
+                    fi
+                done < "$local_manifest"
+            fi
+        fi
+
         if dry_run_guard "rsync ${delete_flag} ${src} → ${dst}"; then
             mkdir -p "$dst"
-            if [[ -n "$delete_flag" ]]; then
-                rsync -a --delete "$src" "$dst"
-            else
-                rsync -a "$src" "$dst"
-            fi
+            rsync "${rsync_opts[@]}" "$src" "$dst"
             log_debug "복사 완료: ${dir}/"
         fi
     done
@@ -1169,6 +1205,7 @@ cmd_update() {
     echo ""
 
     # 변경 사항 diff 표시
+    local local_manifest="${target}/.claude/.harness-local"
     local has_changes=false
     for dir in "${TEMPLATE_DIRS[@]}"; do
         local src="${SOURCE_CLAUDE_DIR}/${dir}/"
@@ -1186,18 +1223,29 @@ cmd_update() {
         diff_output="$(diff -rq "$src" "$dst" 2>/dev/null || true)"
         if [[ -n "$diff_output" ]]; then
             has_changes=true
+            local src_ns="${src%/}" dst_ns="${dst%/}"
             echo "$diff_output" | while IFS= read -r line; do
-                if [[ "$line" == *"Only in ${src}"* ]]; then
-                    local file="${line#Only in */: }"
-                    log_info "  + ${dir}/${file}"
-                elif [[ "$line" == *"Only in ${dst}"* ]]; then
-                    local file="${line#Only in */: }"
-                    log_warn "  - ${dir}/${file} (삭제 예정)"
+                if [[ "$line" == "Only in "* ]]; then
+                    # diff 출력: "Only in <DIR>: <NAME>" (DIR은 trailing slash 없음)
+                    local only_dir="${line#Only in }"; only_dir="${only_dir%: *}"
+                    local only_name="${line##*: }"
+                    if [[ "$only_dir" == "$src_ns"* ]]; then
+                        local rel="${only_dir#"$src_ns"}"; rel="${rel#/}"
+                        log_info "  + ${dir}/${rel:+${rel}/}${only_name}"
+                    elif [[ "$only_dir" == "$dst_ns"* ]]; then
+                        local rel="${only_dir#"$dst_ns"}"; rel="${rel#/}"
+                        local relpath="${rel:+${rel}/}${only_name}"
+                        if is_local_preserved "$local_manifest" "${dir}/${relpath}"; then
+                            log_info "  = ${dir}/${relpath} (보존됨, .harness-local)"
+                        else
+                            log_warn "  - ${dir}/${relpath} (삭제 예정)"
+                        fi
+                    fi
                 elif [[ "$line" == *"differ"* ]]; then
                     local file
                     file="${line#Files }"
                     file="${file%% and *}"
-                    file="${file#${src}}"
+                    file="${file#"${src}"}"
                     log_info "  ~ ${dir}/${file} (변경됨)"
                 fi
             done

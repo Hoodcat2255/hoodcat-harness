@@ -122,6 +122,7 @@ harness 내부 파일 변경 시 관련 문서를 자동 동기화하는 스킬�
 - `./harness.sh update <프로젝트 경로>` - 기존 설치 업데이트
 - `./harness.sh config` - 텔레그램 알림 등 대화형 설정
 - install/update 시 context-mode MCP 서버 자동 등록 (Node.js 18+ 필요)
+- `update`의 `rsync --delete`는 프로젝트 전용 스킬/에이전트를 삭제하므로, 보존할 경로는 대상 프로젝트의 `.claude/.harness-local` 매니페스트에 선언한다 (상세: `.claude/harness.md`의 "프로젝트 로컬 확장" 절).
 
 ## 파이프라인 시스템 (설계 완료, 미구현)
 
