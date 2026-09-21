@@ -22,6 +22,7 @@ oh-my-claudecode(OMC) 위에 얹는 개인용 Claude Code 확장 팩. 스킬·�
 ```bash
 /bin/bash tests/test-install.sh
 /bin/bash tests/test-notify-telegram.sh
+/bin/bash tests/test-dr-prefix.sh
 ```
 
 ## 문서 작성 규칙

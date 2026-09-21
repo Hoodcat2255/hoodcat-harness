@@ -6,7 +6,8 @@ description: |
   primary sources (official .go.kr sites, 공고문, 법령 원문) first; supports a focused
   re-verification mode for disputed claims (pushback). Saves structured results to docs/.
   Use when the user asks to research, investigate, or gather comprehensive information.
-  Triggers on: "조사해줘", "찾아줘", "알아봐", "리서치", "deepresearch", or any request
+  Triggers on: "조사해줘", "찾아줘", "알아봐", "리서치", "deepresearch", "dr:" (a prefix at
+  the very start of the prompt; the rest is the topic), or any request
   for in-depth information gathering about a technology, concept, regulation, or trend.
 argument-hint: "[주제] (또는 '재검증: <의심받은 주장>')"
 user-invocable: true
