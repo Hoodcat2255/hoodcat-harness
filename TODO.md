@@ -5,7 +5,7 @@
 - [x] 설치됐던 4개 프로젝트(subscription-helper, manage, cc-api, ebs-recoder)에서 하네스 제거
 - [x] ~/.claude/rules, harness CLI 심링크, ~/.zshrc 연동 제거
 - [x] 개인 팩 구조: deepresearch 스킬, 사실 검증 규칙 5종, 텔레그램 알림 훅 (2026-09-22 제거)
-- [ ] subscription-helper/.claude/rules 처리 결정 (cheongyak 스킬이 참조 중)
+- [x] subscription-helper 프로젝트 삭제 (2026-09-22, .claude/rules 처리 문제 해소)
 
 # 오케스트레이터 위임율 개선 (종결, 2026-05-22)
 
