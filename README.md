@@ -1,188 +1,90 @@
 # hoodcat-harness
 
-Claude Code용 멀티에이전트 시스템. 7개 에이전트와 12개 스킬을 프로젝트에 설치하여 Claude Code의 기능을 확장한다.
+[oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode)(OMC) 위에 얹어 쓰는 개인용 Claude Code 확장 팩이다. 스킬·규칙·훅·스크립트를 **전역**(`~/.claude`, `~/.local/bin`)에 설치하고, 제거할 때는 설치한 것만 정확히 지운다.
+
+> 2026-09-21 이전의 이 저장소는 프로젝트마다 에이전트 7개·스킬 12개를 복사해 넣는 멀티에이전트 하네스였다. 그 체계는 철회했고 OMC로 대체했다. 옛 구조는 git 히스토리와 `docs/`에 남아 있다.
 
 ## 요구 사항
 
-| 의존성 | 용도 | 필수 |
-|---------|------|------|
-| [Claude Code](https://claude.ai/code) | 에이전트/스킬 실행 환경 | O |
-| `rsync` | 파일 동기화 (`harness install/update`) | O |
-| `git` | 브랜치 생성, 커밋 | 권장 |
-| `jq` | 훅에서 JSON 파싱 (미설치 시 훅이 graceful skip) | 권장 |
-
-macOS와 Linux 모두 지원한다.
+| 의존성 | 용도 |
+|--------|------|
+| [Claude Code](https://claude.com/claude-code) | `claude plugin` 명령으로 OMC 설치 |
+| `jq` | 매니페스트·settings.json 편집 (필수) |
+| Node.js / `npm` | OMC CLI(`oh-my-claude-sisyphus`) 설치 |
+| `curl` | 텔레그램 알림 훅 |
 
 ## 설치
 
 ```bash
-# 1. 저장소 클론
 git clone git@github.com:Hoodcat2255/hoodcat-harness.git
 cd hoodcat-harness
-
-# 2. harness CLI를 PATH에 등록 (심링크 + 탭 완성)
-./install.sh
-
-# 3. 대상 프로젝트에 에이전트 시스템 설치
-harness install ~/Projects/my-project
+./install.sh            # OMC 확인·설치 → 개인 팩 설치
+./install.sh --dry-run  # 바뀔 내용만 출력
+./install.sh --skip-omc # OMC 단계 생략
 ```
 
-`install.sh`는 다음을 설치한다:
-- `~/.local/bin/harness` — `harness.sh`로의 심링크
-- bash 완성 (`~/.local/share/bash-completion/completions/harness`)
-- zsh 완성 (`~/.zfunc/_harness`)
+`install.sh`는 두 단계로 동작한다.
 
-## 사용법
+1. **OMC** — OMC README의 Quick Start 절차를 따른다. 이미 설치돼 있으면 건너뛴다.
+   - `claude plugin marketplace add https://github.com/Yeachan-Heo/oh-my-claudecode`
+   - `claude plugin install oh-my-claudecode@omc --scope user`
+   - `npm i -g oh-my-claude-sisyphus@latest` (`omc` CLI)
+   - 위 단계 중 하나라도 새로 설치했으면 `omc setup`
+2. **개인 팩** — 아래 항목을 복사하고 `~/.claude/.hoodcat-pack.json` 매니페스트에 기록한다.
 
-```bash
-harness install [dir]    # 대상 디렉토리에 설치 (기본: 현재 디렉토리)
-harness update  [dir]    # 최신 버전으로 업데이트
-harness status  [dir]    # 설치 상태 확인
-harness delete  [dir]    # 설치된 harness 삭제
-```
-
-### 옵션
-
-| 옵션 | 설명 |
-|------|------|
-| `-f`, `--force`, `-y` | 확인 프롬프트 스킵 |
-| `-n`, `--dry-run` | 실제 변경 없이 표시만 |
-| `-v`, `--verbose` | 상세 로그 출력 |
-
-### 예시
-
-```bash
-# 현재 디렉토리에 설치
-cd ~/Projects/my-app
-harness install
-
-# 경로 지정 + 자동 확인
-harness install ~/Projects/my-app -f
-
-# 변경 사항 미리보기
-harness update ~/Projects/my-app --dry-run
-
-# 상태 확인
-harness status ~/Projects/my-app
-```
-
-## 아키텍처
-
-1-tier, Main-Agent-Driven 아키텍처를 사용한다.
-
-```
-Main Agent (디스패처 + 워크플로 조합)
-  ├─ 슬래시 커맨드 → 해당 스킬 직접 호출
-  └─ 그 외 자연어 요청 → .claude/dispatch/catalog.md·recipes.md 참조
-                          → 워커 스킬·에이전트 직접 호출·조합
-```
-
-Main Agent는 디스패처 + 워크플로 조합 역할을 모두 수행한다. 슬래시 커맨드는 해당 스킬을 직접 호출하고, 그 외 자연어 요청은 `.claude/dispatch/catalog.md`·`recipes.md`를 참조하여 워커 스킬·에이전트를 직접 호출·조합한다. 자세한 흐름은 `docs/prompt-flow-after-cleanup-20260522.md` 참조.
+다시 실행하면 이전 설치를 먼저 지우고 현재 저장소 상태로 맞춘다. 이 팩이 설치하지 않은 파일과 경로가 겹치면 `~/.claude/.hoodcat-pack-backup/<시각>/`에 백업하고 덮어쓴다. `settings.json`은 수정 전에 `settings.json.hoodcat-bak`으로 복사된다.
 
 ## 설치되는 항목
 
-`harness install`은 대상 프로젝트의 `.claude/` 디렉토리에 다음을 복사한다:
+| 저장소 | 설치 위치 | 내용 |
+|--------|-----------|------|
+| `skills/deepresearch/` | `~/.claude/skills/deepresearch/` | 도메인 적응형 심층 조사. 한국 규제 도메인은 Tier 1(법령·공고문) 우선, 재검증 모드, `docs/research-*.md` 저장 |
+| `rules/*.md` | `~/.claude/rules/hoodcat/` | 자료 등급(Tier 1~4), 인식적 정직(자신감 라벨·반박 시 Self-Check), 안티패턴 3종. 모든 세션에 자동 적용 |
+| `hooks/notify-telegram.sh` | `~/.claude/hooks/hoodcat/` | SubagentStop 시 텔레그램 알림. `hooks/hooks.json`에 선언된 이벤트로 `settings.json`에 등록 |
+| `scripts/*` | `~/.local/bin/` | 개인 CLI 스크립트 (현재 없음) |
 
-### 에이전트 (7개)
+경로는 `CLAUDE_CONFIG_DIR`, `HOODCAT_BIN_DIR` 환경변수로 바꿀 수 있다.
 
-| 에이전트 | 역할 |
-|----------|------|
-| `coder` | 코딩. 파일 읽기/쓰기, 빌드, 테스트 |
-| `committer` | Git 작업. 변경 분석, 커밋 생성 (sonnet) |
-| `researcher` | 리서치/기획. 웹 검색, Context7, 문서 작성 |
-| `reviewer` | 코드 품질 리뷰. 유지보수성, 패턴 일관성 (read-only, model: sonnet) |
-| `security` | 보안 리뷰. OWASP Top 10, 인증/인가 |
-| `architect` | 아키텍처 리뷰. 구조 적합성, 확장성 |
-| `navigator` | 코드베이스 탐색. 파일 매핑, 영향 범위 파악 (read-only, model: sonnet) |
+### 텔레그램 알림 설정
 
-### 스킬 (12개)
+`~/.claude/.env`(전역) 또는 프로젝트 루트 `.env`(우선)에 적는다. 없으면 훅은 아무것도 하지 않는다. 템플릿은 `.env.example`.
 
-모든 스킬은 `context: fork`로 서브에이전트에서 격리 실행된다.
-
-| 스킬 | Agent | 설명 |
-|------|-------|------|
-| `/code` | coder | 코드 작성, 수정, 진단, 패치 |
-| `/test` | coder | 테스트 작성 및 실행 |
-| `/blueprint` | researcher | 요구사항 분석, 아키텍처 설계, 태스크 분해 |
-| `/commit` | committer | 변경 분석, 커밋 메시지 생성 |
-| `/deploy` | coder | 배포 설정 (Dockerfile, CI/CD) |
-| `/security-scan` | coder | 의존성 감사 + 코드 보안 패턴 검사 |
-| `/deepresearch` | researcher | 웹 검색 + Context7 기반 심층 조사 |
-| `/decide` | researcher | 옵션 비교, 트레이드오프 분석, 권고 |
-| `/scaffold` | coder | 새 스킬/에이전트 파일 자동 생성 |
-| `/sync-docs` | coder | harness 내부 문서 자동 동기화 (CLAUDE.md/harness.md/dispatch/*.md) |
-| `/team-review` | coder | 3관점 동시 리뷰: 품질/보안/아키텍처 (에이전트팀) |
-| `/qa-swarm` | coder | 병렬 QA: 테스트/린트/보안 동시 실행 (에이전트팀) |
-
-### 훅 (11개)
-
-| 훅 | 이벤트 | 설명 |
-|----|--------|------|
-| `verify-build-test.sh` | (유틸리티) | 프로젝트별 빌드/테스트 검증 스크립트 |
-| `task-quality-gate.sh` | TaskCompleted | 에이전트팀 태스크 완료 시 빌드/테스트 자동 검증 |
-| `teammate-idle-check.sh` | TeammateIdle | 미완료 태스크가 있는 팀원 유휴 시 작업 재개 유도 |
-| `subagent-monitor.sh` | SubagentStop | 서브에이전트 종료 로깅 |
-| `notify-telegram.sh` | SubagentStop | 에이전트 완료 시 텔레그램으로 결과 알림 |
-| `shared-context-inject.sh` | SubagentStart | 이전 에이전트 작업 요약을 컨텍스트로 주입 |
-| `shared-context-collect.sh` | SubagentStop | 에이전트 작업 결과 자동 수집 |
-| `shared-context-cleanup.sh` | SessionStart | TTL 만료된 공유 컨텍스트 세션 정리 |
-| `shared-context-finalize.sh` | SessionEnd | 세션 메트릭 기록 |
-| `test-shared-context.sh` | (테스트) | 공유 컨텍스트 시스템 동작 검증용 |
-| `test-notify-telegram.sh` | (테스트) | 텔레그램 알림 훅 동작 검증용 |
-
-### 기타
-
-| 항목 | 설명 |
-|------|------|
-| `.claude/dispatch/` | Skill·Agent 카탈로그·레시피·Pushback Trigger 정본 (Main Agent가 직접 참조) |
-| `.claude/rules/` | 공통 룰 — anti-pattern 3종(general/python/typescript) + source-hierarchy + epistemic-honesty + response-format + shared-context-protocol + agent-memory |
-| `.claude/harness.md` | 공통 지침 파일 (모든 프로젝트에 적용) |
-| `.claude/shared-context-config.json` | 공유 컨텍스트 시스템 설정 (TTL, 필터 등) |
-| `.claude/settings.json` | 훅 등록 + 상태표시줄 설정 |
-| `.claude/settings-omc.json.example` | OMC 전환용 settings.json 예시 |
-| `.claude/statusline.sh` | 모델, 컨텍스트, git 상태 표시 |
-
-`CLAUDE.md`는 프로젝트에 없으면 자동 생성하며, 최상단에 `@.claude/harness.md` import를 주입한다. 이미 존재하면 import만 최상단으로 이동시킨다.
+```
+HARNESS_TG_BOT_TOKEN=...
+HARNESS_TG_CHAT_ID=...
+```
 
 ## 제거
 
 ```bash
-# 대상 프로젝트에서 harness 제거
-harness delete ~/Projects/my-app
-
-# harness CLI 자체 제거 (심링크 + 탭 완성)
-./uninstall.sh
+./uninstall.sh            # 매니페스트에 적힌 스킬·규칙·훅·스크립트와 훅 등록만 제거
+./uninstall.sh --dry-run
 ```
 
-## settings.json 머지 정책 (옵션 C)
+OMC는 제거하지 않는다. 필요하면 `claude plugin uninstall oh-my-claudecode@omc`와 `npm rm -g oh-my-claude-sisyphus`를 직접 실행한다.
 
-`harness update`는 기존 `settings.json`의 `hooks` 영역에서 다음을 처리한다:
-- harness가 제공하지 않는 stale hook 항목 (예: `${CLAUDE_PROJECT_DIR}/.claude/hooks/<제거된-파일>.sh` 가리키는 항목) 자동 제거
-- 사용자 커스텀 hook (다른 경로·다른 명령) 그대로 보존
-- harness 정의 event는 최신 src로 덮어씀
+## 새 항목 추가
+
+- 스킬: `skills/<이름>/SKILL.md`. `agent`를 생략하면 `general-purpose`로 실행된다. OMC 스킬·에이전트와 역할이 겹치면 만들지 않는다.
+- 규칙: `rules/<이름>.md`.
+- 훅: `hooks/<스크립트>.sh`를 만들고 `hooks/hooks.json`에 `{"event": "...", "script": "...", "matcher": "..."}`를 추가한다.
+- 스크립트: `scripts/<이름>`에 실행 파일을 둔다.
+
+추가한 뒤 `./install.sh --skip-omc`로 다시 설치하면 반영된다.
+
+## 테스트
+
+```bash
+bash tests/test-install.sh          # 임시 디렉토리에서 설치·재설치·제거·충돌 백업 검증
+bash tests/test-notify-telegram.sh  # 가짜 curl로 알림 메시지 검증
+```
 
 ## 디렉토리 구조
 
 ```
-hoodcat-harness/
-├── harness.sh              # 메인 CLI
-├── install.sh              # CLI 설치 (심링크 + 탭 완성)
-├── uninstall.sh            # CLI 제거
-├── completions/
-│   ├── harness.bash        # bash 탭 완성
-│   └── harness.zsh         # zsh 탭 완성
-├── .claude/
-│   ├── agents/             # 에이전트 정의 (7개, orchestrator 제외)
-│   ├── dispatch/           # 카탈로그·레시피·Pushback Trigger (Main Agent 직접 참조)
-│   ├── skills/             # 스킬 정의 (12개)
-│   ├── rules/              # 공통 룰 (anti-pattern + 인식론적 정직 + 응답 형식 등)
-│   ├── hooks/              # 훅 스크립트 (11개)
-│   ├── agent-memory/       # 에이전트별 영속 메모리
-│   ├── shared-context-config.json  # 공유 컨텍스트 설정
-│   ├── harness.md          # 공통 지침
-│   ├── settings.json       # 훅/상태표시줄 설정
-│   ├── settings-omc.json.example   # OMC 전환용 settings.json 예시
-│   └── statusline.sh       # 상태표시줄
-├── docs/                   # 리서치 결과 및 계획 문서
-└── CLAUDE.md               # 프로젝트 지침 (이 저장소용)
+install.sh / uninstall.sh   설치·제거
+lib/common.sh               경로, 로그, dry-run, settings.json 훅 편집
+skills/ rules/ hooks/ scripts/   설치 대상
+tests/                      테스트
+docs/                       조사·결정 기록 (옛 하네스 시절 포함)
 ```

@@ -1,5 +1,4 @@
-.claude/log/
-.claude/shared-context/
-.claude/agent-memory/
-.claude/.env
 .env
+.claude/settings.local.json
+.claude/agent-memory/
+.omc/

@@ -1,3 +1,12 @@
+# OMC 베이스 개인 팩으로 전환 (2026-09-21)
+
+> 프로젝트별 하네스를 전면 철회하고 OMC + 전역 개인 팩(install.sh/uninstall.sh) 구조로 바꿨다. 아래 절들은 옛 하네스 시절의 기록이며 대부분 더 이상 해당 없다.
+
+- [x] 설치됐던 4개 프로젝트(subscription-helper, manage, cc-api, ebs-recoder)에서 하네스 제거
+- [x] ~/.claude/rules, harness CLI 심링크, ~/.zshrc 연동 제거
+- [x] 개인 팩 구조: deepresearch 스킬, 사실 검증 규칙 5종, 텔레그램 알림 훅
+- [ ] subscription-helper/.claude/rules 처리 결정 (cheongyak 스킬이 참조 중)
+
 # 오케스트레이터 위임율 개선 (종결, 2026-05-22)
 
 > 결말: 옵션 A로 위임 강제 시스템 전체를 폐지함. 본 절은 역사적 기록.
