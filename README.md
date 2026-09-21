@@ -40,20 +40,10 @@ cd hoodcat-harness
 |--------|-----------|------|
 | `skills/deepresearch/` | `~/.claude/skills/deepresearch/` | 도메인 적응형 심층 조사. 한국 규제 도메인은 Tier 1(법령·공고문) 우선, 재검증 모드, `docs/research-*.md` 저장 |
 | `rules/*.md` | `~/.claude/rules/hoodcat/` | 자료 등급(Tier 1~4), 인식적 정직(자신감 라벨·반박 시 Self-Check), 안티패턴 3종. 모든 세션에 자동 적용 |
-| `hooks/notify-telegram.sh` | `~/.claude/hooks/hoodcat/` | SubagentStop 시 텔레그램 알림. `hooks/hooks.json`에 선언된 이벤트로 `settings.json`에 등록 |
-| `hooks/dr-prefix.sh` | `~/.claude/hooks/hoodcat/` | UserPromptSubmit. 프롬프트가 `dr:`로 시작하면 deepresearch 스킬 호출 지시를 주입 |
+| `hooks/dr-prefix.sh` | `~/.claude/hooks/hoodcat/` | UserPromptSubmit. 프롬프트가 `dr:`로 시작하면 deepresearch 스킬 호출 지시를 주입. `hooks/hooks.json`에 선언된 이벤트로 `settings.json`에 등록 |
 | `scripts/*` | `~/.local/bin/` | 개인 CLI 스크립트 (현재 없음) |
 
 경로는 `CLAUDE_CONFIG_DIR`, `HOODCAT_BIN_DIR` 환경변수로 바꿀 수 있다.
-
-### 텔레그램 알림 설정
-
-`~/.claude/.env`(전역) 또는 프로젝트 루트 `.env`(우선)에 적는다. 없으면 훅은 아무것도 하지 않는다. 템플릿은 `.env.example`.
-
-```
-HARNESS_TG_BOT_TOKEN=...
-HARNESS_TG_CHAT_ID=...
-```
 
 ### `dr:` 접두어
 
@@ -88,7 +78,6 @@ OMC는 제거하지 않는다. 필요하면 `claude plugin uninstall oh-my-claud
 
 ```bash
 bash tests/test-install.sh          # 임시 디렉토리에서 설치·재설치·제거·충돌 백업 검증
-bash tests/test-notify-telegram.sh  # 가짜 curl로 알림 메시지 검증
 bash tests/test-dr-prefix.sh        # dr: 접두어 매칭 규칙 (LC_ALL=C·UTF-8 로캘)
 ```
 

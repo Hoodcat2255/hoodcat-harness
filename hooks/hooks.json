@@ -1,9 +1,5 @@
 [
   {
-    "event": "SubagentStop",
-    "script": "notify-telegram.sh"
-  },
-  {
     "event": "UserPromptSubmit",
     "script": "dr-prefix.sh"
   }

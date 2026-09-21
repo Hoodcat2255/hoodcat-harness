@@ -4,7 +4,7 @@
 
 - [x] 설치됐던 4개 프로젝트(subscription-helper, manage, cc-api, ebs-recoder)에서 하네스 제거
 - [x] ~/.claude/rules, harness CLI 심링크, ~/.zshrc 연동 제거
-- [x] 개인 팩 구조: deepresearch 스킬, 사실 검증 규칙 5종, 텔레그램 알림 훅
+- [x] 개인 팩 구조: deepresearch 스킬, 사실 검증 규칙 5종, 텔레그램 알림 훅 (2026-09-22 제거)
 - [ ] subscription-helper/.claude/rules 처리 결정 (cheongyak 스킬이 참조 중)
 
 # 오케스트레이터 위임율 개선 (종결, 2026-05-22)
@@ -59,7 +59,6 @@ claude-dashboard 실데이터 분석 결과 오케스트레이터가 스킬/에�
 - [ ] OMC notepad/shared-memory TTL·gc 정책 호환성 검증 (shared-context-config.json 기준)
 - [ ] OMC team의 TeammateIdle 이벤트 내장 처리 확인
 - [ ] shared_memory_write 동시성 안전성 ↔ flock 동등성 확인
-- [ ] 글로벌 telegram plugin이 SubagentStop을 받는지 알림 도달 테스트
 - [ ] verifier 명시 호출로 task-quality-gate 자동 트리거 없이 동등 검증 강도 유지되는지 운영 관찰
 - [ ] OMC analyst가 hoodcat decide의 trade-off 표·자료 등급 분석을 동등하게 제공하는지 확인
 

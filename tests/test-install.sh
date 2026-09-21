@@ -33,7 +33,6 @@ check() {
     else FAIL=$((FAIL+1)); echo "  ✗ $desc"; fi
 }
 
-HOOK="${CLAUDE_CONFIG_DIR}/hooks/hoodcat/notify-telegram.sh"
 DR_HOOK="${CLAUDE_CONFIG_DIR}/hooks/hoodcat/dr-prefix.sh"
 MANIFEST="${CLAUDE_CONFIG_DIR}/.hoodcat-pack.json"
 # 사용법: count_hook <이벤트> <명령 경로>
@@ -48,18 +47,15 @@ echo "[2] 설치"
 "$REPO_DIR/install.sh" --skip-omc >/dev/null
 check "스킬 설치" test -f "$CLAUDE_CONFIG_DIR/skills/deepresearch/SKILL.md"
 check "규칙 설치" test -f "$CLAUDE_CONFIG_DIR/rules/hoodcat/source-hierarchy.md"
-check "훅 실행 권한" test -x "$HOOK"
-check "훅 등록 1회" test "$(count_hook SubagentStop "$HOOK")" = 1
 check "dr-prefix 훅 실행 권한" test -x "$DR_HOOK"
 check "dr-prefix 훅 등록 1회 (UserPromptSubmit)" test "$(count_hook UserPromptSubmit "$DR_HOOK")" = 1
 check "기존 훅 보존" jq -e '.hooks.PreToolUse[0].hooks[0].command == "/usr/local/bin/guard.sh"' "$CLAUDE_CONFIG_DIR/settings.json"
 check "기존 설정 보존" jq -e '.model == "opus"' "$CLAUDE_CONFIG_DIR/settings.json"
 check "사용자 스킬 보존" test -f "$CLAUDE_CONFIG_DIR/skills/my-own-skill/SKILL.md"
-check "매니페스트 기록" jq -e '(.paths | length) > 0 and (.hooks | length) == 2' "$MANIFEST"
+check "매니페스트 기록" jq -e '(.paths | length) > 0 and (.hooks | length) == 1' "$MANIFEST"
 
 echo "[3] 재설치는 중복 없이 동기화"
 "$REPO_DIR/install.sh" --skip-omc >/dev/null
-check "훅 등록 여전히 1회" test "$(count_hook SubagentStop "$HOOK")" = 1
 check "dr-prefix 훅 등록 여전히 1회" test "$(count_hook UserPromptSubmit "$DR_HOOK")" = 1
 check "백업 디렉토리 없음 (내 파일은 백업 대상 아님)" test ! -d "$CLAUDE_CONFIG_DIR/.hoodcat-pack-backup"
 
