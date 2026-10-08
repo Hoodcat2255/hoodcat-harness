@@ -355,3 +355,17 @@ def test_prompts_carry_number_and_name_rules():
     assert "숫자(금액·건수·비율·날짜·시각·순번)는 context만으로 고치지 마라" in llm.CORRECT_PROMPT
     assert "(수치 확인 필요)" in llm.DOC_COMMON
     assert "명단에 없는 호칭" in llm.RECORDING_DOC_RULES and "발언 미수록" in llm.RECORDING_DOC_RULES
+
+
+def test_ocr_frames_skips_results_without_text(monkeypatch, tmp_path: Path):
+    from rapidocr.ch_ppocr_det.utils import TextDetOutput
+    from rapidocr.utils.output import RapidOCROutput
+
+    from ytscribe import frames
+    outputs = iter([
+        RapidOCROutput(txts=("김부욱 교수", "x"), scores=(0.95, 0.99)),   # 1자 텍스트는 버린다
+        TextDetOutput(),                                                  # rec 단계 실패: txts가 없다
+    ])
+    monkeypatch.setattr(frames, "make_ocr", lambda: lambda path: next(outputs))
+    res = frames.ocr_frames([(1.5, tmp_path / "a.jpg"), (4.5, tmp_path / "b.jpg")])
+    assert [r["texts"] for r in res] == [["김부욱 교수"], []]

@@ -3,9 +3,13 @@
 import ctypes
 import glob
 import re
+import sys
 import time
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import numpy as np
 
 
 def preload_cuda_libs() -> None:
@@ -40,7 +44,8 @@ def default_device() -> str:
     """Apple Silicon에서 mlx-whisper가 있으면 mlx, 아니면 cuda (OOM이면 CPU로 넘어간다)."""
     import platform
 
-    if platform.system() == "Darwin" and platform.machine() == "arm64":
+    # sys.platform 비교는 pyright가 정적으로 평가해, Linux 검사에서는 이 분기(mlx 임포트)를 도달 불가로 본다
+    if sys.platform == "darwin" and platform.machine() == "arm64":
         try:
             import mlx_whisper  # noqa: F401
             return "mlx"
@@ -95,9 +100,23 @@ COVERAGE_WARN = 0.9
 NUM_MIN_PROB = 0.5
 
 
+def _load_mono(audio: Path) -> "np.ndarray":
+    """16kHz 모노 float32 파형.
+
+    decode_audio는 반환 타입 주석이 없어 pyright가 split_stereo=True 분기의 tuple까지 합친 유니온으로 추론한다.
+    기본값 split_stereo=False에서는 항상 ndarray이므로 그 타입으로 좁힌다.
+    """
+    import numpy as np
+    from faster_whisper.audio import decode_audio
+
+    wave = decode_audio(str(audio))
+    if not isinstance(wave, np.ndarray):
+        raise TypeError(f"decode_audio가 예상 밖의 타입을 반환했습니다: {type(wave)!r}")
+    return wave
+
+
 def _run(audio: Path, opts: dict[str, Any], device: str, compute_type: str) -> tuple[list[dict], dict]:
     from faster_whisper import BatchedInferencePipeline, WhisperModel
-    from faster_whisper.audio import decode_audio
 
     print(f"[asr] {opts['model']} / {device} / {compute_type}")
     if opts.get("initial_prompt"):
@@ -106,7 +125,7 @@ def _run(audio: Path, opts: dict[str, Any], device: str, compute_type: str) -> t
         print(f"[asr] hotwords: {opts['hotwords']}")
     t0 = time.time()
     model = WhisperModel(opts["model"], device=device, compute_type=compute_type, cpu_threads=8)
-    wave = decode_audio(str(audio))
+    wave = _load_mono(audio)
     common = dict(
         language=opts["language"],
         beam_size=opts["beam_size"],
@@ -156,8 +175,10 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
     chunk_length 이하의 창으로 묶어 창마다 전사한다 (CUDA 경로의 15초 조각 전사와 같은 효과).
     mlx-whisper는 빔 서치와 hotwords를 지원하지 않아 greedy(+온도 폴백)로 디코딩한다.
     """
+    if sys.platform != "darwin":
+        # mlx-whisper는 Apple Silicon 전용 의존성(pyproject 플랫폼 마커). 기존과 같은 ImportError를 낸다
+        raise ImportError("mlx-whisper는 macOS(Apple Silicon)에서만 쓸 수 있습니다")
     import mlx_whisper
-    from faster_whisper.audio import decode_audio
     from faster_whisper.vad import VadOptions, get_speech_timestamps
 
     repo = MLX_MODELS.get(opts["model"], opts["model"])
@@ -168,7 +189,7 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
         print("[warn] mlx-whisper는 hotwords를 지원하지 않아 무시합니다.")
     t0 = time.time()
     sr = 16000
-    wave = decode_audio(str(audio))
+    wave = _load_mono(audio)
     duration = len(wave) / sr
     common = dict(
         path_or_hf_repo=repo,

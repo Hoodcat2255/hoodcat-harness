@@ -86,11 +86,18 @@ def make_ocr():
 
 
 def ocr_frames(frames: list[tuple[float, Path]]) -> list[dict]:
+    from rapidocr.ch_ppocr_rec.typings import TextRecOutput
+    from rapidocr.utils.output import RapidOCROutput
+
     engine = make_ocr()
     results = []
     t0 = time.time()
     for i, (t, p) in enumerate(frames, 1):
         r = engine(str(p))
+        # 반환 타입은 det/cls/rec 단계 조합별 유니온이다. det+rec 구성에서도 rec 단계가 실패하면
+        # txts가 없는 TextDetOutput이 오므로, txts/scores를 가진 타입만 읽고 나머지는 빈 결과로 본다
+        if not isinstance(r, (RapidOCROutput, TextRecOutput)):
+            r = RapidOCROutput()
         texts = [
             str(txt).strip()
             for txt, score in zip(r.txts or [], r.scores or [])
