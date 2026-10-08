@@ -62,7 +62,7 @@ cd ~/Projects/whisper && uv run transcribe.py "<file>" --summarize --mode <mode>
   holds the GPU), ≈ 0.3× on the Apple Silicon Mac (mlx-whisper). Long recordings (> ~1 hour) are corrected in 15-minute parts, and over ~2.5 hours
   the document is built from per-part notes; tell the user it takes longer.
 - Monitor the log with
-  `grep --line-buffered -E "^\[(input|privacy|asr\] [0-9]|warn\] (GPU|[^/]*실패)|correct|classify|document|result)|exit=|Traceback|Error"`.
+  `grep --line-buffered -E "^\[(input|privacy|asr\] ([0-9]|커버리지)|warn\] (GPU|커버리지|[^/]*실패)|correct|classify|document|result)|exit=|Traceback|Error"`.
 - Output goes to `output/<file-stem>-<hash>/`. The same file with another `--mode` reuses the
   transcript and only regenerates the document.
 
@@ -74,6 +74,11 @@ cd ~/Projects/whisper && uv run transcribe.py "<file>" --summarize --mode <mode>
 3. Remind briefly: speaker names are guesses (no diarization), unstated owners/deadlines are "미정",
    and numbers spoken as Korean words ("공일공…") are not masked.
 4. Corrections: count by evidence from `corrections.json`; `user` = based on the terms/attendees given.
+5. Coverage: quote the `[asr] 커버리지` line. On a `[warn] 커버리지` warning, tell the user part of the
+   speech may be missing (often the user's own mic was not captured in a screen/call recording) and
+   ask them to check those spots; never describe it as silence.
+6. Numbers: if `[correct] 수치 확인 필요 N건` appears, list those lines from `transcript.md` (marked
+   `(수치 확인 필요)`) and ask the user to confirm amounts, counts and dates before relying on them.
 
 ## Privacy and legality
 

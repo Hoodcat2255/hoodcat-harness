@@ -61,7 +61,7 @@ cd ~/Projects/whisper && uv run transcribe.py "<URL>" --summarize --mode <mode> 
 
 - Use `run_in_background: true` with a generous timeout (≥ 2 h for videos over 30 min).
 - Watch progress with Monitor on the log, filtering the stage lines so failures also surface:
-  `grep --line-buffered -E "^\[(fetch|ocr\] 프레임|asr\] [0-9]|warn\] (GPU|[^/]*실패)|subs|correct|visual|document|analysis|verify|result)|exit=|Traceback|Error"`
+  `grep --line-buffered -E "^\[(fetch|ocr\] 프레임|asr\] ([0-9]|커버리지)|warn\] (GPU|커버리지|[^/]*실패)|subs|correct|visual|document|analysis|verify|result)|exit=|Traceback|Error"`
 - Tell the user up front: expected duration from the video length, and that it may fall back to
   CPU if ComfyUI is using the GPU. Give short updates at stage changes, not every line.
 - Results are cached per stage in `output/<video-id>/`. Rerunning the same URL with another
@@ -86,7 +86,9 @@ The last log line is `[result] mode=<mode> md=<path> html=<path>`. Then:
 4. Briefly report quality signals from `output/<id>/corrections.json`: number of applied
    corrections by evidence (`description`, `youtube_*`, `ocr`, `frame`, `context`), any
    `(복원)` / `(재전사)` lines in `transcript.md`, and anything skipped. Mention the Claude cost
-   (sum of the `비용 $` lines).
+   (sum of the `비용 $` lines). Also report the `[asr] 커버리지` line (warn if below 90%: speech may be
+   missing, do not call it silence) and the `[correct] 수치 확인 필요 N건` line: those numbers differ from
+   the YouTube captions and must not be stated as fact.
 5. Offer follow-ups in one line: another mode, transcript (`transcript.md` / `.srt`), or
    publishing the HTML as a private Artifact. Do not publish unless asked; video frames belong to
    the uploader.

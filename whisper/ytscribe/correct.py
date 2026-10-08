@@ -1,6 +1,7 @@
 """교정 입력 구성, 교정 결과 적용, 결과물 렌더링."""
 
 import copy
+import re
 from typing import Any
 
 from .asr import fmt_ts
@@ -10,6 +11,13 @@ from .subs import overlap_text
 OCR_WINDOW_BEFORE = 5.0
 OCR_WINDOW_AFTER = 10.0
 DESCRIPTION_LIMIT = 8000
+# 숫자는 멀쩡한 오답으로 나와 눈에 띄지 않는다. 문맥만으로 바꾼 숫자는 지어낸 값일 수 있다
+NUMBER_RE = re.compile(r"\d+(?:[.,]\d+)*")
+NUM_CHECK_MARK = " (수치 확인 필요)"
+
+
+def numbers(text: str) -> list[str]:
+    return sorted(n.replace(",", "") for n in NUMBER_RE.findall(text))
 
 
 def meta_from_info(info: dict) -> dict:
@@ -72,6 +80,9 @@ def apply_corrections(segments: list[dict], corrections: list[dict], source: str
             continue
         if not before or before == c.get("after"):
             entry["status"] = "skipped: empty or no-op"
+            continue
+        if c.get("evidence") == "context" and numbers(before) != numbers(c.get("after") or ""):
+            entry["status"] = "skipped: 숫자는 문맥 근거만으로 고치지 않음"
             continue
         count = seg["text"].count(before)
         if count == 0:
@@ -136,6 +147,28 @@ def apply_structure(
     return segs, log
 
 
+def flag_numbers(segments: list[dict], cues: list[dict], kind: str) -> int:
+    """숫자 판독이 갈리는 세그먼트에 num_check를 단다. 표시한 수를 돌려준다.
+
+    영상: 같은 시간대 유튜브 자막에도 숫자가 있는데 Whisper와 다르면 표시한다 (자막이 숫자를 한글로 썼으면 비교하지 않는다).
+    녹음: 숫자가 든 단어의 인식 확률이 낮았던 세그먼트(num_low_conf)를 표시한다.
+    """
+    count = 0
+    for s in segments:
+        if s.get("deleted"):
+            continue
+        mine = set(numbers(s["text"]))
+        if kind == "recording":
+            flagged = bool(s.get("num_low_conf") and mine)
+        else:
+            theirs = set(numbers(overlap_text(cues, s["start"] - 1.0, s["end"] + 1.0)))
+            flagged = bool(mine and theirs and not mine <= theirs)
+        if flagged:
+            s["num_check"] = True
+            count += 1
+    return count
+
+
 def render_txt(segments: list[dict]) -> str:
     return "\n".join(s["text"] for s in segments if not s.get("deleted")) + "\n"
 
@@ -168,7 +201,7 @@ def render_md(meta: dict, segments: list[dict], notes: list[dict]) -> str:
         if s.get("deleted"):
             continue
         mark = " (복원)" if s.get("inserted") else " (재전사)" if s.get("recovered") else ""
-        lines.append(f"[{fmt_ts(s['start'], '.')[:8]}]{mark} {s['text']}")
+        lines.append(f"[{fmt_ts(s['start'], '.')[:8]}]{mark} {s['text']}{NUM_CHECK_MARK if s.get('num_check') else ''}")
         for n in notes_by_id.get(s["id"], []):
             lines.append(f"> [화면 {fmt_ts(n['time'], '.')[:8]}] {n['description']}")
     for n in orphans:

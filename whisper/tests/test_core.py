@@ -254,3 +254,104 @@ def test_drop_tail_hallucination_only_at_window_end():
     # 창 끝에서 떨어진 저신뢰 발화는 남긴다
     assert drop_tail_hallucination([real, fake | {"end": 5.5}], 6.3) == [real, fake | {"end": 5.5}]
     assert drop_tail_hallucination([], 6.3) == []
+
+
+def test_repeated_runs_drops_loops_but_keeps_backchannels():
+    from ytscribe.asr import repeated_runs
+    loop = ["이곳은 한창의 한가운데요."] * 3 + ["다른 말입니다"]
+    assert repeated_runs(loop) == {0, 1, 2}
+    assert repeated_runs(["네", "네.", "네", "네"]) == set()            # 짧은 맞장구
+    assert repeated_runs(["감사합니다."] * 4) == set()                  # 5자
+    assert repeated_runs(["이곳은 한창의 한가운데요."] * 2) == set()      # 2회는 루프로 보지 않는다
+
+
+def test_is_unspeakable():
+    from ytscribe.asr import is_unspeakable
+    assert is_unspeakable("閉을閉을", "ko") and not is_unspeakable("閉을閉을", None)
+    assert is_unspeakable("자막 Amara.org 커뮤니티", None) and is_unspeakable("깨진 � 문자", "ko")
+    assert not is_unspeakable("구독과 좋아요 부탁드립니다", "ko")      # 유튜버의 실제 발화
+    assert not is_unspeakable("中 하나는 괜찮다", "ko")
+
+
+def test_collect_drops_hallucinations_and_flags_low_conf_numbers():
+    from ytscribe.asr import _collect
+
+    def seg(t, text, word_info=None):
+        return {"start": t, "end": t + 2, "text": text, "words": [(t, t + 2)], "word_info": word_info or []}
+
+    raw = [seg(0, "시작합니다 여러분")] + [seg(2 + 2 * i, "이곳은 한창의 한가운데요.") for i in range(3)] + [
+        seg(8, "閉을閉을"), seg(10, "매출은 9억 건입니다", [("매출은", 0.9), ("9억", 0.3), ("건입니다", 0.9)]),
+        seg(12, "3시에 봐요", [("3시에", 0.95), ("봐요", 0.9)]),
+    ]
+    result, covered = _collect(raw, "ko")
+    assert [r["text"] for r in result] == ["시작합니다 여러분", "매출은 9억 건입니다", "3시에 봐요"]
+    assert covered == [(0, 2), (10, 12), (12, 14)]   # 버린 자리는 누락 재전사 대상으로 남는다
+    assert result[1].get("num_low_conf") and "num_low_conf" not in result[2]
+
+
+def test_speech_coverage_and_warning(capsys):
+    from ytscribe.asr import coverage_stats, report_coverage, speech_coverage
+    assert speech_coverage([], []) == 1.0
+    assert abs(speech_coverage([(0, 10)], [(0, 4)]) - 0.43) < 1e-6   # 단어 구간 앞뒤 0.3초 포함
+    stats = coverage_stats([(0, 10)], [(0, 4)], [(4, 10)])
+    assert stats["before"] < 0.9 and stats["after"] == 1.0
+    report_coverage(stats)
+    out = capsys.readouterr().out
+    assert "재전사 후 100.0%" in out and "[warn]" not in out
+    report_coverage(coverage_stats([(0, 10)], [(0, 4)], []))
+    assert "[warn] 커버리지" in capsys.readouterr().out
+    report_coverage(None)   # 예전 캐시(asr.json)에는 커버리지가 없다
+    assert capsys.readouterr().out == ""
+
+
+def test_recover_gaps_drops_repeated_recoveries(monkeypatch):
+    import faster_whisper.vad as vad
+    import numpy as np
+
+    from ytscribe import asr
+    gaps = [(1.0, 3.0), (4.0, 6.0), (7.0, 9.0), (10.0, 12.0)]
+    texts = iter(["이곳은 한창의 한가운데요."] * 3 + ["마지막에 실제로 한 말입니다"])
+    real = asr.uncovered_intervals
+    monkeypatch.setattr(asr, "uncovered_intervals",
+                        lambda speech, covered, min_len, pad=0.3: gaps if min_len > 0 else real(speech, covered, min_len, pad))
+    monkeypatch.setattr(vad, "get_speech_timestamps", lambda wave, opts: [{"start": 0, "end": 13 * 16000}])
+    rec, stats = asr._recover_gaps(np.zeros(13 * 16000, dtype=np.float32), [(0.0, 1.0)], lambda clip: [
+        {"text": next(texts), "avg_logprob": -0.2, "compression_ratio": 1.2}], "ko")
+    assert [r["text"] for r in rec] == ["마지막에 실제로 한 말입니다"]
+    assert stats["after"] < 0.5   # 반복으로 버린 구간은 커버리지에 넣지 않는다
+
+
+def test_apply_corrections_never_changes_numbers_from_context_alone():
+    segs = [{"id": 0, "start": 0, "end": 1, "text": "부업군적으로 처리"}, {"id": 1, "start": 1, "end": 2, "text": "9억 건 매출"},
+            {"id": 2, "start": 2, "end": 3, "text": "츄르 중장"}]
+    corr = [
+        {"id": 0, "before": "부업군적으로", "after": "2억 건으로", "evidence": "context", "evidence_detail": ""},
+        {"id": 1, "before": "9억", "after": "2억", "evidence": "ocr", "evidence_detail": "2억 건"},
+        {"id": 2, "before": "츄르", "after": "츠루", "evidence": "context", "evidence_detail": ""},
+    ]
+    out, log = apply_corrections(segs, corr, "correct")
+    assert log[0]["status"] == "skipped: 숫자는 문맥 근거만으로 고치지 않음" and out[0]["text"] == "부업군적으로 처리"
+    assert out[1]["text"] == "2억 건 매출" and out[2]["text"] == "츠루 중장"
+
+
+def test_flag_numbers_video_and_recording():
+    from ytscribe.correct import flag_numbers
+    cues = [{"start": 0, "end": 5, "text": "매출이 2억 건이었고"}, {"start": 5, "end": 10, "text": "오십 퍼센트 증가"},
+            {"start": 10, "end": 15, "text": "1,000원 올랐다"}]
+    segs = [{"id": 0, "start": 0, "end": 5, "text": "매출이 9억 건이었고"},
+            {"id": 1, "start": 6, "end": 9, "text": "50퍼센트 증가"},          # 자막이 숫자를 한글로 썼으면 비교 안 함
+            {"id": 2, "start": 10, "end": 15, "text": "1000원 올랐다"},        # 쉼표 차이는 같은 값
+            {"id": 3, "start": 0, "end": 5, "text": "삭제됨 7", "deleted": "환각"}]
+    assert flag_numbers(segs, cues, "video") == 1 and segs[0].get("num_check") and not segs[2].get("num_check")
+    rec = [{"id": 0, "start": 0, "end": 1, "text": "3억", "num_low_conf": True},
+           {"id": 1, "start": 1, "end": 2, "text": "[전화번호]", "num_low_conf": True}]   # 마스킹으로 숫자가 사라짐
+    assert flag_numbers(rec, [], "recording") == 1 and rec[0]["num_check"] and "num_check" not in rec[1]
+    md = render_md({"title": "t"}, rec, [])
+    assert "[00:00:00] 3억 (수치 확인 필요)" in md
+
+
+def test_prompts_carry_number_and_name_rules():
+    from ytscribe import llm
+    assert "숫자(금액·건수·비율·날짜·시각·순번)는 context만으로 고치지 마라" in llm.CORRECT_PROMPT
+    assert "(수치 확인 필요)" in llm.DOC_COMMON
+    assert "명단에 없는 호칭" in llm.RECORDING_DOC_RULES and "발언 미수록" in llm.RECORDING_DOC_RULES

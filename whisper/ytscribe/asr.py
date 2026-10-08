@@ -80,6 +80,19 @@ GAP_MAX_COMPRESSION = 2.4
 GAP_MIN_CHARS_PER_SEC = 2.0
 # 방송 크레딧·유튜브 엔딩 같은 정형 환각 문구
 HALLUCINATION_RE = re.compile(r"기상캐스터|영상편집|촬영기자|자료조사|자막 ?제공|시청해 ?주셔서|구독|좋아요|다음 영상")
+# 실제 발화로는 나올 수 없는 문자열 (깨진 문자, 자막 제작 크레딧). 본 전사에도 위치와 무관하게 적용한다.
+# "구독"·"좋아요"는 유튜버가 실제로 말하므로 여기에 넣지 않는다 (재전사 조각에만 위 HALLUCINATION_RE로 거른다)
+UNSPEAKABLE_RE = re.compile(r"\ufffd|Amara\.org|Sous-titr", re.I)
+# 한국어 전사에 한자가 2자 이상 섞이면 저음량 구간의 깨진 디코딩이다 (예: "閉을閉을")
+HANJA_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]")
+# 같은 문장이 별도 세그먼트로 이만큼 연속되면 반복 루프로 본다 (예: "이곳은 한창의 한가운데요." ×11)
+REPEAT_RUN = 3
+# 이보다 짧은 문장("네", "감사합니다")은 실제 맞장구로 반복될 수 있어 연속 반복 판정에서 뺀다
+REPEAT_MIN_CHARS = 6
+# 발화 시간 중 인식된 단어가 덮은 비율이 이보다 낮으면 누락 가능성을 경고한다
+COVERAGE_WARN = 0.9
+# 숫자가 든 단어의 인식 확률이 이보다 낮으면 '수치 확인 필요'로 표시한다 (녹음본)
+NUM_MIN_PROB = 0.5
 
 
 def _run(audio: Path, opts: dict[str, Any], device: str, compute_type: str) -> tuple[list[dict], dict]:
@@ -111,17 +124,20 @@ def _run(audio: Path, opts: dict[str, Any], device: str, compute_type: str) -> t
         wave, batch_size=opts["batch_size"], chunk_length=opts["chunk_length"], word_timestamps=True, **common,
     )
     result, covered = _collect([
-        {"start": seg.start, "end": seg.end, "text": seg.text, "words": [(w.start, w.end) for w in (seg.words or [])]}
+        {"start": seg.start, "end": seg.end, "text": seg.text, "words": [(w.start, w.end) for w in (seg.words or [])],
+         "word_info": [(w.word, w.probability) for w in (seg.words or [])]}
         for seg in segments
-    ])
+    ], opts["language"] or info.language)
     def decode_clip(clip):
         return [{"text": s.text, "avg_logprob": s.avg_logprob, "compression_ratio": s.compression_ratio}
                 for s in model.transcribe(clip, vad_filter=False, **common)[0]]
 
-    result = _finish(result + _recover_gaps(wave, covered, decode_clip))
+    recovered, coverage = _recover_gaps(wave, covered, decode_clip, opts["language"] or info.language)
+    result = _finish(result + recovered)
     elapsed = time.time() - t0
     print(f"[asr] {elapsed:.0f}s 소요 (실시간 대비 x{info.duration / max(elapsed, 1):.1f})")
-    meta = {"language": info.language, "duration": info.duration, "device": device, "compute_type": compute_type}
+    meta = {"language": info.language, "duration": info.duration, "device": device, "compute_type": compute_type,
+            "coverage": coverage}
     return result, meta
 
 
@@ -172,17 +188,19 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
             raw.append({
                 "start": w_start + seg["start"], "end": w_start + seg["end"], "text": seg["text"],
                 "words": [(w_start + w["start"], w_start + w["end"]) for w in seg.get("words", [])],
+                "word_info": [(w["word"], w["probability"]) for w in seg.get("words", [])],
             })
-    result, covered = _collect(raw)
+    result, covered = _collect(raw, language)
 
     def decode_clip(clip):
         return [{"text": s["text"], "avg_logprob": s["avg_logprob"], "compression_ratio": s["compression_ratio"]}
                 for s in mlx_whisper.transcribe(clip, **common)["segments"]]
 
-    result = _finish(result + _recover_gaps(wave, covered, decode_clip))
+    recovered, coverage = _recover_gaps(wave, covered, decode_clip, language)
+    result = _finish(result + recovered)
     elapsed = time.time() - t0
     print(f"[asr] {elapsed:.0f}s 소요 (실시간 대비 x{duration / max(elapsed, 1):.1f})")
-    meta = {"language": language, "duration": duration, "device": "mlx", "compute_type": "float16"}
+    meta = {"language": language, "duration": duration, "device": "mlx", "compute_type": "float16", "coverage": coverage}
     return result, meta
 
 
@@ -215,21 +233,62 @@ def group_windows(speech: list[tuple[float, float]], max_len: float) -> list[tup
     return [(round(s, 3), round(e, 3)) for s, e in windows]
 
 
-def _collect(segments: list[dict]) -> tuple[list[dict], list[tuple[float, float]]]:
-    """반복 출력을 버리고, 단어 타임스탬프로 세그먼트 시각을 맞춘다. 인식된 단어 구간도 함께 돌려준다."""
+def _collect(segments: list[dict], language: str | None = None) -> tuple[list[dict], list[tuple[float, float]]]:
+    """환각 출력을 버리고, 단어 타임스탬프로 세그먼트 시각을 맞춘다. 인식된 단어 구간도 함께 돌려준다.
+
+    버린 세그먼트의 단어 구간은 covered에 넣지 않으므로, 그 자리는 누락 재전사가 다시 다룬다.
+    """
     result, covered = [], []
-    for seg in segments:
+    runs = repeated_runs([seg["text"] for seg in segments])
+    for i, seg in enumerate(segments):
         text = seg["text"].strip()
-        if is_degenerate(text):
-            # 같은 단어가 반복되는 루프 출력은 버리고, 그 구간은 아래 누락 재전사가 다시 다룬다
-            print(f"  [{fmt_ts(seg['start'], '.')}] (반복 출력 버림) {text[:60]}")
+        reason = ("연속 반복 버림" if i in runs else "반복 출력 버림" if is_degenerate(text)
+                  else "발화 불가 문자열 버림" if is_unspeakable(text, language) else "")
+        if reason:
+            print(f"  [{fmt_ts(seg['start'], '.')}] ({reason}) {text[:60]}")
             continue
         words = seg["words"]
         covered += words
         start, end = (words[0][0], words[-1][1]) if words else (seg["start"], seg["end"])
-        result.append({"start": round(start, 2), "end": round(end, 2), "text": text})
+        out = {"start": round(start, 2), "end": round(end, 2), "text": text}
+        if any(p < NUM_MIN_PROB and any(ch.isdigit() for ch in w) for w, p in seg.get("word_info", [])):
+            out["num_low_conf"] = True  # 값은 남기지 않는다 (마스킹 전 원문이 다른 경로로 새지 않게)
+        result.append(out)
         print(f"  [{fmt_ts(start, '.')}] {text}")
     return result, covered
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"\W", "", text)
+
+
+def repeated_runs(texts: list[str]) -> set[int]:
+    """정규화한 같은 문장이 REPEAT_RUN번 이상 연속된 세그먼트 번호 (짧은 맞장구는 제외)."""
+    norm = [_norm(t) for t in texts]
+    out: set[int] = set()
+    i = 0
+    while i < len(norm):
+        j = i
+        while j + 1 < len(norm) and norm[j + 1] == norm[i]:
+            j += 1
+        if j - i + 1 >= REPEAT_RUN and len(norm[i]) >= REPEAT_MIN_CHARS:
+            out.update(range(i, j + 1))
+        i = j + 1
+    return out
+
+
+def is_unspeakable(text: str, language: str | None) -> bool:
+    """깨진 문자·자막 크레딧처럼 실제 발화일 수 없는 출력. 한자 판정은 한국어 전사에서만 한다."""
+    return bool(UNSPEAKABLE_RE.search(text)) or (language == "ko" and len(HANJA_RE.findall(text)) >= 2)
+
+
+def speech_coverage(speech: list[tuple[float, float]], covered: list[tuple[float, float]]) -> float:
+    """VAD 발화 시간 중 인식된 단어 구간(앞뒤 pad 포함)이 덮은 비율. 발화가 없으면 1.0."""
+    total = sum(e - s for s, e in speech)
+    if total <= 0:
+        return 1.0
+    missing = sum(e - s for s, e in uncovered_intervals(speech, covered, min_len=0.0))
+    return max(0.0, 1.0 - missing / total)
 
 
 def _finish(result: list[dict]) -> list[dict]:
@@ -239,10 +298,12 @@ def _finish(result: list[dict]) -> list[dict]:
     return result
 
 
-def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip) -> list[dict]:
+def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip,
+                  language: str | None = None) -> tuple[list[dict], dict]:
     """VAD로는 말소리인데 어떤 단어도 인식되지 않은 구간을 그 부분만 잘라 다시 전사한다.
 
     BGM이 깔린 인터뷰는 앞뒤 발화와 한 조각으로 묶이면 통째로 빠지지만, 단독으로 넣으면 인식됐다.
+    복구 전후의 발화 커버리지도 함께 돌려준다.
     """
     from faster_whisper.vad import VadOptions, get_speech_timestamps
 
@@ -250,7 +311,7 @@ def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip) -> list
     speech = [(t["start"] / sr, t["end"] / sr)
               for t in get_speech_timestamps(wave, VadOptions(min_silence_duration_ms=300))]
     gaps = uncovered_intervals(speech, covered, min_len=GAP_MIN_LEN)
-    recovered = []
+    recovered, filled = [], []
     for g_start, g_end in gaps:
         lo, hi = max(0.0, g_start - 0.3), g_end + 0.3
         segs = decode_clip(wave[int(lo * sr): int(hi * sr)])
@@ -258,7 +319,8 @@ def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip) -> list
                 and s["compression_ratio"] <= GAP_MAX_COMPRESSION and s["text"].strip()]
         text = " ".join(s["text"].strip() for s in good)
         density = len(re.sub(r"\W", "", text)) / max(g_end - g_start, 0.1)
-        if text and (density < GAP_MIN_CHARS_PER_SEC or HALLUCINATION_RE.search(text) or is_degenerate(text)):
+        if text and (density < GAP_MIN_CHARS_PER_SEC or HALLUCINATION_RE.search(text) or is_degenerate(text)
+                     or is_unspeakable(text, language)):
             status = f"버림(환각 의심, {density:.1f}자/초)"
             text = ""
         else:
@@ -267,7 +329,34 @@ def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip) -> list
         print(f"[asr] 누락 의심 {fmt_ts(g_start, '.')}~{fmt_ts(g_end, '.')} 재전사 → {status}: {(text or raw)[:60]}")
         if text:
             recovered.append({"start": round(lo, 2), "end": round(hi, 2), "text": text, "recovered": "vad_gap"})
-    return recovered
+            filled.append((g_start, g_end))
+    # 버린 반복 루프가 구간마다 같은 문장으로 다시 복구되는 경우
+    runs = repeated_runs([r["text"] for r in recovered])
+    if runs:
+        print(f"[asr] 재전사 결과의 연속 반복 {len(runs)}개 버림: {recovered[min(runs)]['text'][:60]}")
+    recovered = [r for i, r in enumerate(recovered) if i not in runs]
+    filled = [f for i, f in enumerate(filled) if i not in runs]
+    return recovered, coverage_stats(speech, covered, filled)
+
+
+def coverage_stats(speech: list[tuple[float, float]], covered: list[tuple[float, float]],
+                   filled: list[tuple[float, float]]) -> dict:
+    """재전사 전후 커버리지. filled는 복구에 성공한 원래 누락 구간(덧댄 여유 제외)이다."""
+    return {"speech_sec": round(sum(e - s for s, e in speech), 1),
+            "before": round(speech_coverage(speech, covered), 4),
+            "after": round(speech_coverage(speech, covered + filled), 4)}
+
+
+def report_coverage(stats: dict | None) -> None:
+    """커버리지를 로그로 남기고, 기준 미만이면 누락 가능성을 경고한다 (캐시를 재사용해도 매번 출력)."""
+    if not stats:
+        return
+    before, after = stats["before"], stats["after"]
+    print(f"[asr] 커버리지: 발화 {fmt_ts(stats['speech_sec'], '.')[:8]} 중 {before:.1%}"
+          + (f" → 재전사 후 {after:.1%}" if after != before else ""))
+    if after < COVERAGE_WARN:
+        print(f"[warn] 커버리지 {after:.1%} (기준 {COVERAGE_WARN:.0%} 미만): 발화가 빠졌을 수 있습니다. "
+              "마이크 미수록·배경음 때문일 수 있으니 무음으로 단정하지 말고 해당 구간을 직접 확인하세요.")
 
 
 def is_degenerate(text: str) -> bool:

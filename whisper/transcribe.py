@@ -30,6 +30,7 @@ from typing import Any
 import datetime
 
 from ytscribe import correct, fetch, frames, llm, privacy, report, verify
+from ytscribe.asr import report_coverage
 from ytscribe.asr import transcribe as run_asr
 from ytscribe.subs import parse_vtt, uncovered_spans
 
@@ -37,7 +38,7 @@ from ytscribe.subs import parse_vtt, uncovered_spans
 #   KBS 리포트(설명란 원고 대비): 힌트 없음 0.205 / 제목 initial_prompt 0.373 + 크레딧 환각 / 상위 12개 hotwords 0.202
 #   전기 강의(유튜브 자막 대비): 힌트 없음 0.104 / 용어 hotwords 0.374 + "정전기 전병칠…" 반복 환각 8건
 # → 자동 추출 용어를 Whisper에 넣지 않는다. 용어집은 교정 단계(Claude)에 표기 참고 자료로만 준다.
-ASR_VERSION = 4  # 전사 로직이 바뀌면 올린다 (asr.json 캐시 무효화). 2: 단어 타임스탬프 + 누락 구간 재전사, 3: 재전사 환각 필터, 4: 반복 세그먼트 제거
+ASR_VERSION = 5  # 전사 로직이 바뀌면 올린다 (asr.json 캐시 무효화). 2: 단어 타임스탬프 + 누락 구간 재전사, 3: 재전사 환각 필터, 4: 반복 세그먼트 제거, 5: 연속 반복·발화 불가 문자열 제거, 커버리지, 저신뢰 숫자
 
 
 def fingerprint(obj: Any) -> str:
@@ -488,6 +489,7 @@ def main() -> None:
     spans = [] if args.asr_only else step_ocr(work, args)
     terms = meta["user_terms"] + [t for t in step_glossary(work, args, info, spans) if t not in meta["user_terms"]]
     asr = step_asr(work, args, asr_options(args))
+    report_coverage(asr["meta"].get("coverage"))
     segments, duration = asr["segments"], asr["meta"]["duration"]
     if args.mask == "on" or (args.mask == "auto" and args.kind == "recording"):
         # 원본은 asr.json에만 남고, 이후 단계(Claude 전송·결과물)는 가린 텍스트만 쓴다
@@ -508,6 +510,10 @@ def main() -> None:
         notes, log = vis["notes"], log1 + log2 + log3
         applied = sum(1 for e in log if e["status"] == "applied")
         print(f"[correct] 변경 {applied}건 적용 / {len(log)}건 제안, 화면 설명 {len(notes)}건")
+        flagged = correct.flag_numbers(final, cues, args.kind)
+        if flagged:
+            basis = "숫자 단어 인식 확률 낮음" if args.kind == "recording" else "유튜브 자막과 숫자 불일치"
+            print(f"[correct] 수치 확인 필요 {flagged}건 ({basis})")
 
     write_atomic(work / "transcript.json", json.dumps({"segments": final, "notes": notes}, ensure_ascii=False, indent=1))
     write_atomic(work / "corrections.json", json.dumps(log, ensure_ascii=False, indent=1))
