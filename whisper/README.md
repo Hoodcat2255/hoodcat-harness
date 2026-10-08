@@ -5,8 +5,11 @@
 ## 사용법
 
 ```bash
-# 전체: 다운로드 → OCR → 용어집 → 전사 → 교정 → 프레임 분석 → 문서 (형식은 영상 성격으로 자동 판별)
+# 전체: 다운로드 → 용어집 → 전사 → 교정 → 프레임 분석 → 문서 (형식은 영상 성격으로 자동 판별)
 uv run transcribe.py "https://www.youtube.com/watch?v=VIDEO_ID" --summarize
+
+# 화면 텍스트 OCR까지 (자막·이름표의 고유명사로 교정, CPU라 영상 길이만큼 더 걸린다)
+uv run transcribe.py URL --summarize --ocr
 
 # 문서 형식 지정: summary(요약) / outline(정리) / notes(학습 노트)
 uv run transcribe.py URL --summarize --mode notes
@@ -17,7 +20,7 @@ uv run transcribe.py URL --asr-only
 # 영상·화면 분석 없이 (음원 + 메타데이터 + 자막만)
 uv run transcribe.py URL --no-video
 
-# 로컬 파일 (영상 파일이면 OCR·프레임 분석도 수행)
+# 로컬 파일 (영상 파일이면 프레임 분석도 수행, OCR은 --ocr)
 uv run transcribe.py lecture.mp4 --language en
 ```
 
@@ -57,13 +60,13 @@ uv run transcribe.py 회의.m4a --summarize \
 | 단계 | 내용 | 비용 |
 |---|---|---|
 | 1. fetch | yt-dlp로 음원, 720p 영상, info.json, 업로더 수동 자막과 자동자막을 받는다 | – |
-| 2. ocr | 3초 간격 프레임을 뽑아 중복을 제거하고, RapidOCR(PP-OCRv5 한국어)로 읽는다. 로고처럼 계속 떠 있는 텍스트는 제외한다 | CPU, 프레임당 약 3초 (표가 가득한 화면은 6초 이상). 18분 강연은 약 15분 |
+| 2. ocr (`--ocr`) | 기본은 건너뛴다. 3초 간격 프레임을 뽑아 중복을 제거하고, RapidOCR(PP-OCRv5 한국어)로 읽는다. 로고처럼 계속 떠 있는 텍스트는 제외한다 | CPU, 프레임당 약 3초 (표가 가득한 화면은 6초 이상). 18분 강연은 약 15분 |
 | 3. glossary | 설명란·태그·OCR에서 고유명사·전문용어를 뽑아 교정 단계에 표기 참고 자료로 준다 (Whisper 힌트로는 쓰지 않는다, 아래 주의 참고) | Claude haiku 1회 |
 | 4. asr | faster-whisper large-v3, int8_float16, 15초 조각, 단어 타임스탬프. 같은 단어가 반복되는 출력은 버리고 4b로 넘긴다 | GPU (OOM이면 CPU) |
 | 4b. 누락 재전사 | VAD로는 말소리인데 어떤 단어도 인식되지 않은 구간(1.5초 이상)을 그 부분만 잘라 다시 전사한다. 글자 밀도가 초당 2자 미만이거나 크레딧 문구가 있으면 버린다. `transcript.md`에 `(재전사)`로 표시한다 | GPU |
 | 5. correct | Claude 교정 (아래 규칙) | Claude 1회 |
 | 6. visual | 화면을 봐야 하는 발화(최대 12개)의 프레임을 Claude가 직접 보고 설명·교정한다 | Claude 1회, 이미지 1장당 약 1.2k 토큰 |
-| 7. document | 영상 성격을 판별해(haiku) 요약·정리·학습 노트 중 하나로 문서를 만든다. 화면 분석 프레임과 판서·슬라이드 OCR 프레임을 후보로 주면, Claude가 필요한 곳에 최대 8장을 넣는다. 후보에 없는 경로는 코드가 지운다 | Claude 1회 (이미지는 설명만 전달해서 추가 비용이 거의 없다) |
+| 7. document | 영상 성격을 판별해(haiku) 요약·정리·학습 노트 중 하나로 문서를 만든다. 화면 분석 프레임과 판서·슬라이드 OCR 프레임(`--ocr`일 때)을 후보로 주면, Claude가 필요한 곳에 최대 8장을 넣는다. 후보에 없는 경로는 코드가 지운다 | Claude 1회 (이미지는 설명만 전달해서 추가 비용이 거의 없다) |
 
 ### 교정 규칙 (환각·과잉 교정 방지)
 
@@ -120,6 +123,7 @@ Claude Code에서는 `youtube-digest` 스킬로 쓸 수 있다 (`~/.claude/skill
 | `--model` | `large-v3` | `turbo`는 빠르지만 한국어 정확도가 낮다는 보고가 있다 |
 | `--compute-type` | `int8_float16` | RTX 2060은 bfloat16 미지원. 테스트에서 float16과 정확도 차이가 없었다 |
 | `--chunk-length` | `15` | 30이면 BGM이 깔린 인터뷰를 누락하고, 10이면 문장이 잘린다 |
+| `--ocr` | 꺼짐 | 화면 텍스트 OCR을 교정·용어집 근거로 쓴다. 설명란·자막이 부실하고 화면 자막에 고유명사가 많을 때 |
 | `--frame-interval` | `3` | OCR 프레임 간격(초). 자막이 빨리 바뀌는 예능은 2로 |
 | `--max-images` / `--no-images` | `8` / – | 요약에 넣을 이미지 최대 수 / 이미지를 넣지 않는다 |
 | `--max-visual` | `12` | Claude가 볼 프레임 수. 20을 넘기면 이미지 크기 제한이 엄격해진다 |

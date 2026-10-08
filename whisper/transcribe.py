@@ -2,7 +2,7 @@
 
 단계 (결과는 output/<영상ID>/ 에 캐시되어 재실행 시 건너뜀, --force로 무시):
   1. fetch     음원·720p 영상·info.json·유튜브 자막(수동/자동)
-  2. ocr       영상 프레임 추출(N초 간격) → 중복 제거 → 화면 텍스트 OCR       [P2]
+  2. ocr       영상 프레임 추출(N초 간격) → 중복 제거 → 화면 텍스트 OCR (--ocr) [P2]
   3. glossary  설명란·태그·OCR에서 고유명사 추출 → Whisper hotwords            [P0]
   4. asr       faster-whisper large-v3
   5. correct   Claude 교정: 설명란·자막·OCR 근거로 오인식 교체, 누락 복원, 환각 삭제 [P0/P1]
@@ -13,6 +13,7 @@
     uv run transcribe.py "https://www.youtube.com/watch?v=..." --summarize            # 형식 자동 판별
     uv run transcribe.py URL --summarize --mode notes                                 # 학습 노트
     uv run transcribe.py lecture.mp4 --no-visual
+    uv run transcribe.py URL --summarize --ocr     # 화면 자막으로 고유명사 교정 (느림)
     uv run transcribe.py URL --asr-only            # 전사만 (Claude 호출 없음)
 """
 
@@ -72,7 +73,7 @@ def use_video(work: Path, args) -> bool:
 
 
 def step_ocr(work: Path, args) -> list[dict]:
-    if not use_video(work, args):
+    if not args.ocr or not use_video(work, args):
         return []
     video = work / "video.mp4"
 
@@ -441,6 +442,8 @@ def main() -> None:
     p.add_argument("--no-video", action="store_true", help="영상 다운로드·OCR·프레임 분석 생략")
     p.add_argument("--no-visual", action="store_true", help="Claude 프레임 분석(P3) 생략")
     p.add_argument("--max-visual", type=int, default=12, help="Claude가 볼 프레임 최대 수 (20 이하 권장)")
+    p.add_argument("--ocr", action="store_true",
+                   help="화면 텍스트 OCR로 고유명사 교정 근거 추가 (CPU, 영상 길이의 1~1.5배 소요)")
     p.add_argument("--frame-interval", type=float, default=3.0, help="OCR용 프레임 추출 간격(초)")
     p.add_argument("--summarize", action="store_true",
                    help="교정본으로 결과 문서 생성 (<mode>.md + 이미지 포함 <mode>.html)")

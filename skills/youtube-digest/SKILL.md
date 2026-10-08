@@ -4,8 +4,8 @@ description: |
   Turns a YouTube video (or a downloaded/local video file) into a Korean document that fits the
   video's nature: a summary (news, interviews, talk shows, vlogs), an outline (talks, explainers,
   reviews, how-tos), or study notes (lectures, tutorials, courses). Runs the local pipeline in
-  ~/Projects/whisper: yt-dlp download → frame OCR → faster-whisper large-v3 transcription →
-  Claude correction grounded in the description, YouTube captions and on-screen text → frame
+  ~/Projects/whisper: yt-dlp download → (optional frame OCR) → faster-whisper large-v3 transcription →
+  Claude correction grounded in the description, YouTube captions (and on-screen text with --ocr) → frame
   analysis → document with the relevant video frames embedded (Markdown + single-file HTML).
   For politics and economy videos it appends a clearly labeled analysis section by Claude
   (issues and stakeholders, critique with domain-specific checklists, future outlook scenarios or
@@ -35,7 +35,8 @@ Always run it with `uv run` from that directory. Talk to the user in Korean.
 | 노트, 필기, 공부, 학습, 강의 정리 | `--mode notes` |
 | nothing specific | `--mode auto` (the pipeline classifies the video with a cheap model) |
 | 전사만, 자막만, 텍스트만 | `--asr-only` and no `--summarize` (no Claude calls) |
-| 빠르게, 화면 분석 없이 | `--no-video` (skips 720p video, OCR, frame analysis, images) |
+| 빠르게, 화면 분석 없이 | `--no-video` (skips 720p video, frame analysis, images) |
+| 화면 자막까지, 고유명사 정확히, OCR | `--ocr` (off by default: reads on-screen text as correction evidence; adds ≈ 1–1.5× video length on CPU) |
 | 이미지 없이 | `--no-images` |
 | PDF로, PDF 파일 | `--pdf` (A4 PDF via headless Chrome; on an already processed video it reuses all caches, no Claude calls) |
 | 분석, 전망, 비판, 평가, 의견 | `--analysis on` (any domain) |
@@ -50,7 +51,7 @@ path. If the user hands over an audio-only recording, switch to the `recording-n
 
 ## 2. Run the pipeline in the background
 
-It takes minutes (OCR ≈ 1–1.5× video length on CPU; transcription ≈ 0.1× on GPU or ≈ 2× on CPU
+It takes minutes (with `--ocr`, OCR adds ≈ 1–1.5× video length on CPU; transcription ≈ 0.1× on GPU or ≈ 2× on CPU
 when ComfyUI holds the GPU; ≈ 0.3× on the Apple Silicon Mac via mlx-whisper). Run it in the background and log to the session scratchpad:
 
 ```bash
@@ -104,8 +105,8 @@ The last log line is `[result] mode=<mode> md=<path> html=<path>`. Then:
 
 ## Known limits (tell the user when relevant)
 
-- Without description script or captions, proper nouns can stay misheard (only on-screen text
-  and context are available as evidence).
+- Without description script or captions, proper nouns can stay misheard (only context is left as
+  evidence, plus on-screen text with `--ocr`; suggest `--ocr` when names on screen matter).
 - Short interview fragments under background music can still be missed; they are filled only
   when the description or captions contain them, marked `(복원)`.
 - Never add Whisper hints automatically: auto `hotwords`/`initial_prompt` caused repetition and
