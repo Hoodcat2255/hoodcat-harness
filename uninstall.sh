@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # hoodcat 개인 팩 제거: install.sh가 매니페스트(~/.claude/.hoodcat-pack.json)에
-# 기록한 스킬·규칙·훅·스크립트와 settings.json 훅 등록만 제거한다. OMC는 건드리지 않는다.
+# 기록한 스킬·규칙·훅·스크립트와 settings.json 훅 등록만 제거한다. OMC와
+# 전사 파이프라인 디렉토리(전사 결과가 들어 있음)는 건드리지 않는다.
 #
 # 사용법: ./uninstall.sh [-n|--dry-run] [-q|--quiet] [-h|--help]
 
@@ -55,6 +56,9 @@ done < <(jq -r '.paths[]?' "$MANIFEST_FILE")
 for ns in "$RULES_NS" "$HOOKS_NS"; do
     [[ -d "${CLAUDE_DIR}/${ns}" ]] && run rmdir "${CLAUDE_DIR}/${ns}" 2>/dev/null || true
 done
+
+whisper_dir="$(jq -r '.whisper_dir // empty' "$MANIFEST_FILE")"
+[[ -n "$whisper_dir" ]] && say "전사 파이프라인은 남겨 둡니다 (전사 결과 포함): ${whisper_dir}"
 
 run rm -f "$MANIFEST_FILE"
 say "제거 완료. OMC는 그대로 유지됩니다."

@@ -8,7 +8,8 @@ oh-my-claudecode(OMC) 위에 얹는 개인용 Claude Code 확장 팩. 스킬·�
 
 ## 작업 규칙
 
-- 설치 대상은 `skills/`, `rules/`, `hooks/`(+ `hooks/hooks.json`), `scripts/`뿐이다. 여기에 넣은 파일은 모두 전역에 설치되므로 개인용이 아닌 것은 넣지 않는다.
+- 설치 대상은 `skills/`, `rules/`, `hooks/`(+ `hooks/hooks.json`), `scripts/`, `whisper/`뿐이다. 여기에 넣은 파일은 모두 전역에 설치되므로 개인용이 아닌 것은 넣지 않는다.
+- `whisper/`는 youtube-digest·recording-notes 스킬이 쓰는 전사 파이프라인이다. 개발은 이 저장소의 `whisper/`에서 하고, `install.sh`가 `~/Projects/whisper`로 동기화한다 (설치본에서 고친 내용은 덮어써진다). 설치본의 `output/`(전사 결과)·`.venv/`는 보존하고 uninstall도 지우지 않는다.
 - 자체 에이전트는 만들지 않는다. 에이전트가 필요하면 OMC 에이전트를 쓴다. OMC와 역할이 겹치는 스킬도 만들지 않는다.
 - 설치 도구는 매니페스트(`~/.claude/.hoodcat-pack.json`)에 적힌 항목만 지운다. 사용자·OMC 파일을 건드리는 변경은 하지 않는다.
 - 규칙과 훅은 `rules/hoodcat/`, `hooks/hoodcat/` 네임스페이스에 설치된다. 파일 안에서 다른 규칙을 참조할 때는 설치 후 경로(`~/.claude/rules/hoodcat/...`)나 같은 폴더 상대 이름을 쓴다.
@@ -22,6 +23,7 @@ oh-my-claudecode(OMC) 위에 얹는 개인용 Claude Code 확장 팩. 스킬·�
 ```bash
 /bin/bash tests/test-install.sh
 /bin/bash tests/test-dr-prefix.sh
+(cd whisper && uv run pytest -q)   # whisper/를 바꿨을 때
 ```
 
 ## 문서 작성 규칙

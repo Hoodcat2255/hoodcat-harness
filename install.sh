@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 # hoodcat 개인 팩 설치: OMC(oh-my-claudecode)를 먼저 확인·설치한 뒤
-# 개인 스킬·규칙·훅·스크립트를 전역(~/.claude, ~/.local/bin)에 설치한다.
+# 개인 스킬·규칙·훅·스크립트를 전역(~/.claude, ~/.local/bin)에 설치하고,
+# 전사 파이프라인(whisper/)을 ~/Projects/whisper에 동기화한다.
 #
-# 사용법: ./install.sh [-n|--dry-run] [--skip-omc] [-h|--help]
+# 사용법: ./install.sh [-n|--dry-run] [--skip-omc] [--skip-whisper] [--skip-whisper-deps] [-h|--help]
 #
 # 설치 항목은 ~/.claude/.hoodcat-pack.json 매니페스트에 기록되고,
-# uninstall.sh는 이 매니페스트에 적힌 항목만 제거한다.
+# uninstall.sh는 이 매니페스트에 적힌 항목만 제거한다 (전사 파이프라인 디렉토리는 남긴다).
 
 set -euo pipefail
 
@@ -17,9 +18,11 @@ OMC_MARKETPLACE_URL="https://github.com/Yeachan-Heo/oh-my-claudecode"
 OMC_PLUGIN="oh-my-claudecode@omc"
 OMC_NPM_PKG="oh-my-claude-sisyphus@latest"
 SKIP_OMC=false
+SKIP_WHISPER=false
+SKIP_WHISPER_DEPS=false
 
 usage() {
-    sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
     exit 0
 }
 
@@ -27,6 +30,8 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -n|--dry-run) DRY_RUN=true ;;
         --skip-omc)   SKIP_OMC=true ;;
+        --skip-whisper) SKIP_WHISPER=true ;;
+        --skip-whisper-deps) SKIP_WHISPER_DEPS=true ;;
         -h|--help)    usage ;;
         *) die "알 수 없는 옵션: $1" ;;
     esac
@@ -105,6 +110,7 @@ install_pack() {
     for d in "${REPO_DIR}"/skills/*/; do
         name="$(basename "$d")"
         place "$d" "${CLAUDE_DIR}/skills/${name}"
+        localize_whisper_path "${CLAUDE_DIR}/skills/${name}/SKILL.md"
         log_ok "스킬: ${name}"
     done
 
@@ -130,12 +136,83 @@ install_pack() {
         run chmod +x "${BIN_DIR}/$(basename "$f")"
         log_ok "스크립트: $(basename "$f")"
     done
+}
 
-    write_manifest
+# 스킬 문서의 기본 파이프라인 경로를 HOODCAT_WHISPER_DIR로 바꾼다.
+localize_whisper_path() {
+    local f="$1" esc
+    [[ "$WHISPER_DIR" != "$WHISPER_DEFAULT_DIR" && -f "$f" ]] || return 0
+    grep -q '~/Projects/whisper' "$f" || return 0
+    esc="$(printf '%s' "$WHISPER_DIR" | sed 's/[&|\\]/\\&/g')"
+    run sh -c 'sed -e "s|cd ~/Projects/whisper |cd \"$1\" |g" -e "s|~/Projects/whisper|$1|g" "$2" > "$2.tmp" && mv "$2.tmp" "$2"' _ "$esc" "$f"
+}
+
+# --- 3. 전사 파이프라인 (youtube-digest·recording-notes 스킬) ---
+# 코드만 동기화한다. 사용자 데이터(output/ 전사 결과, .venv, .omc, experiments/)와
+# 설치본에서 생기는 개인 파일(.git, .claude, .env*, CLAUDE.md, AGENTS.md)은 건드리지 않는다.
+WHISPER_INSTALLED=false
+
+install_whisper_deps() {
+    local os missing="" c
+    os="$(uname -s)"
+    for c in uv ffmpeg; do
+        command -v "$c" &>/dev/null || missing="${missing} ${c}"
+    done
+    if [[ -n "$missing" ]]; then
+        if [[ "$os" == Darwin ]] && command -v brew &>/dev/null; then
+            log_info "brew install${missing}"
+            # shellcheck disable=SC2086
+            run brew install $missing || log_warn "brew install 실패:${missing}"
+        else
+            log_warn "전사 파이프라인에 필요한 명령이 없습니다:${missing}"
+            log_warn "  uv: curl -LsSf https://astral.sh/uv/install.sh | sh / ffmpeg: sudo apt install ffmpeg"
+        fi
+    fi
+
+    # macOS는 GUI 로그인 없이(SSH 등) 데스크톱 Chrome이 headless로도 뜨지 않아 PDF용으로 따로 둔다.
+    if [[ "$os" == Darwin ]] && ! ls "$HOME"/.cache/chrome-headless-shell/chrome-headless-shell/*/*/chrome-headless-shell &>/dev/null; then
+        if command -v npx &>/dev/null; then
+            log_info "chrome-headless-shell 설치 (--pdf용)"
+            run npx -y @puppeteer/browsers install chrome-headless-shell@stable --path "$HOME/.cache/chrome-headless-shell" \
+                || log_warn "chrome-headless-shell 설치 실패. --pdf는 실패할 수 있습니다."
+        else
+            log_warn "npx가 없어 chrome-headless-shell을 설치하지 못했습니다. --pdf는 실패할 수 있습니다."
+        fi
+    fi
+}
+
+install_whisper() {
+    require_cmd rsync "brew install rsync / sudo apt install rsync"
+    # --delete로 동기화하므로 whisper 사본이 아닌 기존 디렉토리는 건드리지 않는다.
+    if [[ -d "$WHISPER_DIR" && ! -f "${WHISPER_DIR}/transcribe.py" ]] && [[ -n "$(ls -A "$WHISPER_DIR")" ]]; then
+        log_warn "전사 파이프라인 경로에 다른 파일이 있어 건너뜁니다: ${WHISPER_DIR} (스킬은 이 경로를 가리킵니다. HOODCAT_WHISPER_DIR로 바꿀 수 있음)"
+        return 0
+    fi
+    [[ "$SKIP_WHISPER_DEPS" == true ]] || install_whisper_deps
+
+    run mkdir -p "$WHISPER_DIR"
+    run rsync -a --delete \
+        --exclude /output --exclude /.venv --exclude /.omc --exclude /experiments \
+        --exclude /.git --exclude /.claude --exclude '/.env*' --exclude /CLAUDE.md --exclude /AGENTS.md \
+        --exclude __pycache__ --exclude .pytest_cache \
+        "${REPO_DIR}/whisper/" "${WHISPER_DIR}/"
+    WHISPER_INSTALLED=true
+    log_ok "전사 파이프라인: ${WHISPER_DIR}"
+
+    if [[ "$SKIP_WHISPER_DEPS" == true ]]; then
+        return 0
+    elif command -v uv &>/dev/null; then
+        log_info "uv sync (${WHISPER_DIR})"
+        run uv --directory "$WHISPER_DIR" sync \
+            || log_warn "uv sync 실패. ${WHISPER_DIR}에서 uv sync를 다시 실행하세요."
+    else
+        log_warn "uv가 없어 의존성을 설치하지 못했습니다. uv 설치 후 ${WHISPER_DIR}에서 uv sync를 실행하세요."
+    fi
 }
 
 write_manifest() {
-    local commit
+    local commit whisper=""
+    [[ "$WHISPER_INSTALLED" == true ]] && whisper="$WHISPER_DIR"
     commit="$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
     if [[ "$DRY_RUN" == true ]]; then
         echo "  (dry-run) 매니페스트 기록: ${MANIFEST_FILE} (${#INSTALLED_PATHS[@]}개 경로, ${#INSTALLED_HOOKS[@]}개 훅)"
@@ -143,9 +220,11 @@ write_manifest() {
     fi
     jq -n \
         --arg repo "$REPO_DIR" --arg commit "$commit" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --arg whisper "$whisper" \
         --args '{repo: $repo, commit: $commit, installed_at: $at,
                  paths: ($ARGS.positional | map(select(startswith("P:")) | .[2:])),
-                 hooks: ($ARGS.positional | map(select(startswith("H:")) | .[2:]))}' \
+                 hooks: ($ARGS.positional | map(select(startswith("H:")) | .[2:]))}
+                + (if $whisper == "" then {} else {whisper_dir: $whisper} end)' \
         ${INSTALLED_PATHS[@]+"${INSTALLED_PATHS[@]/#/P:}"} \
         ${INSTALLED_HOOKS[@]+"${INSTALLED_HOOKS[@]/#/H:}"} > "$MANIFEST_FILE"
     log_ok "매니페스트: ${MANIFEST_FILE}"
@@ -158,4 +237,12 @@ else
     install_omc
 fi
 install_pack
+# 파이프라인 단계가 중간에 실패해도 설치한 스킬·훅이 매니페스트에 남도록 먼저 기록한다.
+write_manifest
+if [[ "$SKIP_WHISPER" == true ]]; then
+    log_info "전사 파이프라인 단계 생략 (--skip-whisper)"
+else
+    install_whisper
+    [[ "$WHISPER_INSTALLED" == true ]] && write_manifest
+fi
 log_ok "설치 완료. 새 Claude Code 세션부터 적용됩니다."

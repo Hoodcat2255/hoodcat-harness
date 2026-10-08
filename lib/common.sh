@@ -8,6 +8,10 @@ BIN_DIR="${HOODCAT_BIN_DIR:-$HOME/.local/bin}"
 SETTINGS_FILE="${CLAUDE_DIR}/settings.json"
 MANIFEST_FILE="${CLAUDE_DIR}/.hoodcat-pack.json"
 BACKUP_ROOT="${CLAUDE_DIR}/.hoodcat-pack-backup"
+# 전사 파이프라인(youtube-digest·recording-notes 스킬이 쓰는 whisper) 설치 위치.
+# 스킬 문서는 기본 경로(~/Projects/whisper)를 쓰고, 다르면 설치 때 치환한다.
+WHISPER_DEFAULT_DIR="$HOME/Projects/whisper"
+WHISPER_DIR="${HOODCAT_WHISPER_DIR:-$WHISPER_DEFAULT_DIR}"
 
 # 이 저장소가 소유하는 네임스페이스 (rules·hooks는 하위 디렉토리로 격리)
 RULES_NS="rules/hoodcat"

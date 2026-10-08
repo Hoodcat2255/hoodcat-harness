@@ -1,0 +1,22 @@
+# 처음 보는 영상 분야 판별 정답 — 판별 실행 전에 제목만 보고 고정함 (2026-10-03)
+# id 정답 [허용 대안|...] 설명
+ys7rcOPiPR0 politics - 대통령 기자회견 본 황석영
+sGLtYlJX-Dk politics - 청문회 김지용 후보자 검찰개혁
+tpu9cSuPOPQ politics - 대통령 공소청 중수청 출범 선언
+ltUxBo0BB9Q economy - 반복되는 부동산 그래프 집값
+2OzsoqoCt5Q economy - 미국 기업 실적 발표
+myb5Xo_zc7s economy - 코스피 기업 실적 주목
+nqbKOvQ8x1s economy education 주식 투자 기본 개념 (경계 사례)
+HlDTWS93G7c society economy 전세사기 피해 현장검증 (경계 사례)
+dI2WydEht7U society - 교권 침해
+zAv4yNC_JuY society - 사이버 학폭
+KIpLR-KTmVI health - 서울대병원 교수 암 건강검진
+cK2jBEcCD9U health lifestyle 식욕억제 체중감소 (경계 사례)
+1xCE0OyAvaI science - 블랙홀 노벨물리학상
+PJ--v4TQDUg science - 기후변화 임계점 바다 이상신호
+bwk-scjH_DA tech - 아이폰 18 Pro 사용기
+ESOsyhL3Hps tech - ChatGPT vs Claude
+QsYBgJgkd0E education - 수능 수학 16번 풀이
+epQHMKi-hiQ education - 4수 의대생 수학 커리 강사 추천
+ntXnE9hXR_M culture - KBO 하이라이트 KIA vs LG
+0tiuhim4OCs lifestyle - 돼지고기 김치찌개 레시피

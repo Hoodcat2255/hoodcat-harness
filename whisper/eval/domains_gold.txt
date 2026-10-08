@@ -1,0 +1,21 @@
+# 분야 판별 정답 (id 정답 [허용 대안|...] 설명). 판별은 '무엇에 관한 내용인가' 기준.
+kCDMZoSxQ40 politics - 지방선거 여론조사
+JSGGNe6SKoo politics - 명태균 비공개 여론조사
+HzPN9iQHgb4 politics - 여론조작 논란
+B26k4UPniaY economy - 연준 의장 증언 금리 환율
+Uuw517jwuRQ economy - 코스피 폭락
+Gf7s8OnEffk economy - 미국 국채금리 미중 휴전
+kmxMd84A6YA economy - 금리 환율 유가 브리핑
+5-6ICEUwEQg society - 저출산 리포트
+dMSPVxa-izk society - 독거노인
+IHcyy1AGFgc society - 의협 의대증원 고발 (의료 제도 갈등)
+j3j8D7YqEt4 tech - 갤럭시 S26 비교
+C7wal_JwELo tech - 게이밍 노트북 리뷰
+HdIZ3H5cUrk science - 다이아몬드 과학뉴스
+Yd7g8-vGPos science - 누리호 4차 발사
+aXZ8MwVMG-g health - 당뇨 전단계
+IPAtz3rEDK0 health - 혈압약 끊는 방법
+7ISxqQ52YsM health - 멜라토닌 복용
+gUQGRCONL1M society - 배터리 공장 납 노출 (산업재해)
+RDyhK299tus education science 전기 기초 강의
+mtN6m5mbqV4 lifestyle education 습관 심리 강연
