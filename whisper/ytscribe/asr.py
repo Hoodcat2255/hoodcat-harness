@@ -16,6 +16,9 @@ def preload_cuda_libs() -> None:
     # LD_LIBRARY_PATH는 프로세스 시작 시에만 반영되므로,
     # pip로 설치한 cuBLAS/cuDNN을 ctranslate2 import 전에 직접 로드한다.
     # 라이브러리 간 의존 순서를 몰라도 되도록, 더 이상 진전이 없을 때까지 반복 로드한다.
+    if sys.platform != "linux":
+        # nvidia 휠(.so)은 리눅스 전용이다. 호출부가 ImportError를 경고로 처리한다
+        raise ImportError("nvidia cuBLAS/cuDNN 휠은 리눅스에서만 쓸 수 있습니다")
     import nvidia.cublas
     import nvidia.cudnn
 
@@ -181,7 +184,8 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
     import mlx_whisper
     from faster_whisper.vad import VadOptions, get_speech_timestamps
 
-    repo = MLX_MODELS.get(opts["model"], opts["model"])
+    model = str(opts["model"])
+    repo = MLX_MODELS.get(model, model)
     print(f"[asr] {repo} / mlx")
     if opts.get("initial_prompt"):
         print(f"[asr] initial_prompt: {opts['initial_prompt']}")
@@ -191,21 +195,24 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
     sr = 16000
     wave = _load_mono(audio)
     duration = len(wave) / sr
-    common = dict(
-        path_or_hf_repo=repo,
-        language=opts["language"],
-        condition_on_previous_text=False,
-        initial_prompt=opts.get("initial_prompt"),
-        verbose=None,
-    )
+
+    def decode(clip, **extra: Any) -> tuple[list[dict], str | None]:
+        """창 하나를 전사해 (세그먼트, 감지 언어)를 돌려준다. mlx 결과는 dict[str, str | list]로 선언돼 있어 좁힌다."""
+        out = mlx_whisper.transcribe(clip, path_or_hf_repo=repo, condition_on_previous_text=False,
+                                     initial_prompt=opts.get("initial_prompt"), verbose=None,
+                                     language=opts["language"], **extra)
+        segs, lang = out.get("segments"), out.get("language")
+        if not isinstance(segs, list):
+            raise TypeError(f"mlx_whisper 결과의 segments가 리스트가 아닙니다: {type(segs)!r}")
+        return segs, lang if isinstance(lang, str) else None
 
     speech = [(t["start"] / sr, t["end"] / sr) for t in get_speech_timestamps(
         wave, VadOptions(max_speech_duration_s=opts["chunk_length"], min_silence_duration_ms=160))]
     raw, language = [], opts["language"]
     for w_start, w_end in group_windows(speech, opts["chunk_length"]):
-        out = mlx_whisper.transcribe(wave[int(w_start * sr): int(w_end * sr)], word_timestamps=True, **common)
-        language = language or out.get("language")
-        for seg in drop_tail_hallucination(out["segments"], w_end - w_start):
+        segs, detected = decode(wave[int(w_start * sr): int(w_end * sr)], word_timestamps=True)
+        language = language or detected
+        for seg in drop_tail_hallucination(segs, w_end - w_start):
             raw.append({
                 "start": w_start + seg["start"], "end": w_start + seg["end"], "text": seg["text"],
                 "words": [(w_start + w["start"], w_start + w["end"]) for w in seg.get("words", [])],
@@ -214,8 +221,9 @@ def _run_mlx(audio: Path, opts: dict[str, Any]) -> tuple[list[dict], dict]:
     result, covered = _collect(raw, language)
 
     def decode_clip(clip):
+        segs, _ = decode(clip)
         return [{"text": s["text"], "avg_logprob": s["avg_logprob"], "compression_ratio": s["compression_ratio"]}
-                for s in mlx_whisper.transcribe(clip, **common)["segments"]]
+                for s in segs]
 
     recovered, coverage = _recover_gaps(wave, covered, decode_clip, language)
     result = _finish(result + recovered)
@@ -363,9 +371,10 @@ def _recover_gaps(wave, covered: list[tuple[float, float]], decode_clip,
 def coverage_stats(speech: list[tuple[float, float]], covered: list[tuple[float, float]],
                    filled: list[tuple[float, float]]) -> dict:
     """재전사 전후 커버리지. filled는 복구에 성공한 원래 누락 구간(덧댄 여유 제외)이다."""
-    return {"speech_sec": round(sum(e - s for s, e in speech), 1),
-            "before": round(speech_coverage(speech, covered), 4),
-            "after": round(speech_coverage(speech, covered + filled), 4)}
+    # VAD 시각이 numpy 값이라 asr.json에 그대로 남지 않게 float으로 바꾼다
+    return {"speech_sec": round(float(sum(e - s for s, e in speech)), 1),
+            "before": round(float(speech_coverage(speech, covered)), 4),
+            "after": round(float(speech_coverage(speech, covered + filled)), 4)}
 
 
 def report_coverage(stats: dict | None) -> None:
