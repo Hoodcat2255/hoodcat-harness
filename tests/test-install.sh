@@ -134,6 +134,18 @@ check "uv sync 실패 경고" bash -c "printf '%s' \"\$1\" | grep -q 'uv sync �
 check "매니페스트에 스킬과 파이프라인 기록" jq -e --arg w "${SANDBOX}/deps" '.whisper_dir == $w and any(.paths[]; endswith("/youtube-digest"))' "$MANIFEST"
 "$REPO_DIR/uninstall.sh" >/dev/null
 
+echo "[10] 비로그인 셸처럼 PATH에 없는 ~/.local/bin의 uv도 찾아 uv sync를 실행한다"
+H10="${SANDBOX}/home10"; mkdir -p "$H10/.local/bin"
+printf '#!/bin/sh\necho "$@" > "%s/uv-called"\nexit 0\n' "$H10" > "$H10/.local/bin/uv"
+printf '#!/bin/sh\nexit 0\n' > "$H10/.local/bin/ffmpeg"
+chmod +x "$H10/.local/bin/uv" "$H10/.local/bin/ffmpeg"
+PATH_OUT="$(HOME="$H10" PATH="/usr/bin:/bin" HOODCAT_WHISPER_DIR="${SANDBOX}/path10" \
+    "$REPO_DIR/install.sh" --skip-omc 2>&1)"
+check "exit 0" test $? -eq 0
+check "uv sync 호출" grep -q "sync" "$H10/uv-called"
+check "uv 없음 경고 없음" bash -c "! printf '%s' \"\$1\" | grep -q 'uv가 없어'" _ "$PATH_OUT"
+"$REPO_DIR/uninstall.sh" >/dev/null
+
 echo
 echo "통과 ${PASS} / 실패 ${FAIL}"
 [[ "$FAIL" -eq 0 ]]

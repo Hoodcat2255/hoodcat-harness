@@ -157,6 +157,8 @@ Claude Code에서는 `youtube-digest` 스킬로 쓸 수 있다 (`~/.claude/skill
 ```bash
 uv sync
 uv run pytest -q   # 파서·교정 로직 단위 테스트
+uv run ruff check ytscribe transcribe.py tests && uv run pyright ytscribe transcribe.py   # 린트·타입 검사 (ruff·pyright 버전은 dev 그룹에 고정)
+# pyright(PyPI 래퍼)는 node가 필요하다. PATH에 node가 없으면 첫 실행 때 nodeenv로 내려받는다 (오프라인이면 실패)
 ```
 
 시스템 CUDA Toolkit은 필요 없다. pip로 받은 cuBLAS/cuDNN을 스크립트가 직접 로드한다. ffmpeg와 `claude` CLI는 시스템에 있어야 한다.

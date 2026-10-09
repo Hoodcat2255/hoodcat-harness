@@ -19,7 +19,10 @@ venv = ".venv"
 
 [dependency-groups]
 dev = [
+    # 린트·타입 검사 결과가 버전마다 달라지지 않게 고정한다 (두 기기와 ralph 검증 기준선을 같게)
+    "pyright==1.1.408",
     "pytest>=9.1.1",
+    "ruff==0.14.14",
 ]
 
 [tool.pytest.ini_options]

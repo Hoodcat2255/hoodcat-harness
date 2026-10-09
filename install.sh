@@ -10,6 +10,17 @@
 
 set -euo pipefail
 
+# ssh 원격 실행 같은 비로그인 셸에서는 Homebrew·사용자 bin이 PATH에 없어 uv·brew를 못 찾는다.
+# 있는 디렉토리만 뒤에 덧붙여, 사용자가 정한 PATH 우선순위는 바꾸지 않는다.
+# ~/.local/bin(uv 공식 설치 경로)을 먼저 둔다.
+for _d in "${HOME}/.local/bin" /opt/homebrew/bin /usr/local/bin; do
+    case ":${PATH}:" in
+        *":${_d}:"*) ;;
+        *) if [[ -d "$_d" ]]; then PATH="${PATH}:${_d}"; fi ;;
+    esac
+done
+export PATH
+
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=lib/common.sh
 source "${REPO_DIR}/lib/common.sh"

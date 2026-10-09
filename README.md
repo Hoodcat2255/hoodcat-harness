@@ -92,6 +92,7 @@ OMC와 전사 파이프라인 디렉토리(`~/Projects/whisper`, 전사 결과 �
 ```bash
 bash tests/test-install.sh          # 임시 디렉토리에서 설치·재설치·제거·충돌 백업·전사 파이프라인 동기화 검증
 (cd whisper && uv run pytest -q)    # 전사 파이프라인 단위 테스트
+(cd whisper && uv run ruff check ytscribe transcribe.py tests && uv run pyright ytscribe transcribe.py)   # 린트·타입 검사 (버전은 dev 그룹에 고정)
 bash tests/test-dr-prefix.sh        # dr: 접두어 매칭 규칙 (LC_ALL=C·UTF-8 로캘)
 ```
 
